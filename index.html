@@ -249,11 +249,15 @@
 				renderer = new THREE.WebGLRenderer( { antialias: true } );
 				renderer.setPixelRatio( window.devicePixelRatio );
 				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.gammaFactor = 2.2;
+				renderer.outputEncoding = THREE.sRGBEncoding;
 				container.appendChild( renderer.domElement );
 
 				//controls = new OrbitControls( camera, renderer.domElement );
 				controls = new TrackballControls( camera, renderer.domElement );
 				controls.update();
+				// call the renderer if the camera changes
+				//controls.addEventListener( 'change', () => renderer.render( scene, camera ) );
 
 				stats = new Stats();
 				container.appendChild( stats.dom );
