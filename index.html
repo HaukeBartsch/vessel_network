@@ -56,14 +56,14 @@
 				var L = 1.0; // initial length
 				var reversalPoint = 0.01; // if the diameter is smaller than that, grow again
 
-				tree.vertices.push( { point: root, diameter: startDiameter, side: label, direction: [-L, 0, 0], factor: L, children: 2, distance: 0 });
+				tree.vertices.push( { point: root, diameter: startDiameter, side: label, direction: [-L, 0, 0], factor: L, children: 2, distance: 0, level: 0 });
 				var root2 = new THREE.Vector3();
 				root2.set( root.x + L, root.y, root.z );
-				tree.vertices.push( { point: root2, diameter: startDiameter, side: label, direction: [L,0,0], factor: L, children: 2, distance: L });
+				tree.vertices.push( { point: root2, diameter: startDiameter, side: label, direction: [L,0,0], factor: L, children: 2, distance: L, level: 1 });
 				tree.edges.push( [0, 1] );
 				var root3 = new THREE.Vector3();
 				root3.set( root.x - L, root.y, root.z );
-				tree.vertices.push( { point: root3, diameter: startDiameter, side: label, direction: [-L,0,0], factor: L, children: 0, distance: L });
+				tree.vertices.push( { point: root3, diameter: startDiameter, side: label, direction: [-L,0,0], factor: L, children: 0, distance: L, level: 1 });
 				tree.edges.push( [0, 2] );
 
 				//var octree = new THREE.Octree();
@@ -71,7 +71,7 @@
 				//octree.add( root2);
 				// add more complexity
 				// look for a random point
-				for (var counter = 0; counter < 5000; counter++) {
+				for (var counter = 0; counter < 8000; counter++) {
 					var searchIterations = 0;
 					while (true) {
 						var pickedNode = Math.floor(Math.random() * tree.vertices.length);
@@ -110,6 +110,7 @@
 										  diameter: diam,
 										  side: side,
 										  distance: p.distance + p.point.distanceTo(pp),
+										  level: p.level + 1,
 										  children: 0, // count up how many children
 										  direction: [], factor: factor };
 						candidate.direction = candidate.point.clone().sub(p.point);
@@ -328,13 +329,13 @@
 					console.log("download data as csv");
 					var txtAsCsv = "";
 					//  add the tree A and the tree B
-					var  header = [ "nodenum",  "nodecoord_x", "nodecoord_y", "nodecoord_z", "isroot", "subnetwork" ];
+					var  header = [ "nodenum",  "nodecoord_x", "nodecoord_y", "nodecoord_z", "isroot", "subnetwork", "level" ];
 					txtAsCsv += header.join(",") + "\n";
 					for (var i  = 0; i < t.vertices.length; i++) {
-						txtAsCsv += i + "," + t.vertices[i].point.x + "," + t.vertices[i].point.y + "," + t.vertices[i].point.z + "," + (i==0?"1":"0") + ",0\n";
+						txtAsCsv += i + "," + t.vertices[i].point.x + "," + t.vertices[i].point.y + "," + t.vertices[i].point.z + "," + (i==0?"1":"0") + ",0," + t.vertices[i].level + "\n";
 					}
 					for (var i  = 0; i < t2.vertices.length; i++) {
-						txtAsCsv += (i + t.vertices.length) + "," + t2.vertices[i].point.x + "," + t2.vertices[i].point.y + "," + t2.vertices[i].point.z + "," + (i==0?"1":"0") + ",1\n";
+						txtAsCsv += (i + t.vertices.length) + "," + t2.vertices[i].point.x + "," + t2.vertices[i].point.y + "," + t2.vertices[i].point.z + "," + (i==0?"1":"0") + ",1," + t.vertices[i].level + "\n";
 					}
 
 					var file_path = "data:application/csv;charset=utf-8," + encodeURI(txtAsCsv);
@@ -350,11 +351,11 @@
 					txtAsCsv2 += header.join(",") + "\n";
 					for (var i  = 0; i < t.edges.length; i++) {
 						var idx = t.edges[i][1];
-						txtAsCsv2 += (i + t.vertices.length) + "," + t.edges[i][0] + "," + t.edges[i][1] + "," + t.vertices[idx].diameter + "," + t.vertices[idx].distance + "\n";
+						txtAsCsv2 += i + "," + t.edges[i][0] + "," + t.edges[i][1] + "," + t.vertices[idx].diameter + "," + t.vertices[idx].distance + "\n";
 					}
 					for (var i = 0; i < t2.edges.length; i++) {
 						var idx = t2.edges[i][1];
-						txtAsCsv2 += (i + t2.vertices.length + t.vertices.length) + "," + t2.edges[i][0] + "," + t2.edges[i][1] + "," + t2.vertices[idx].diameter + "," + t2.vertices[idx].distance + "\n";
+						txtAsCsv2 += (i + t.vertices.length) + "," + (t2.edges[i][0] + t.vertices.length) + "," + (t2.edges[i][1] + t.vertices.length) + "," + t2.vertices[idx].diameter + "," + t2.vertices[idx].distance + "\n";
 					}
 
 					setTimeout(function() {
