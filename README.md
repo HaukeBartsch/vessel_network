@@ -24,7 +24,7 @@ Navigate to the web-address (localhost:3000). You need to wait for the tree gene
 
 The first tree 'A' is created first. The second tree 'B' will be grown afterwards. It would be better to grow both trees at the same time.
 
-The nodes are added in each tree based on a breath first search manner. The number of possible segments starting from any segments end point is 2. 
+The nodes are added in each tree based on a breath first search manner. The number of possible segments starting from any segments end point is 2.
 
 The diameter value starts at something like 0.2 and is reduced each depth level by a factor of 0.9. The length of the start segments is 1 and also reduced by the factor of 0.9 (with some noise).
 

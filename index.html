@@ -1,382 +1,447 @@
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<title>Tree generation example</title>
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-		<link type="text/css" rel="stylesheet" href="css/main.css">
-		<style>
-			body {
-				background-color: #f0f0f0;
-				color: #444;
-			}
-			a {
-				color: #08f;
-			}
-		</style>
-	</head>
-	<body>
-		<div style="position: fixed; bottom: 30px; left: 30px;"><span id="info"></span></div>
-		<button style="position: fixed; bottom: 30px; right: 30px;" id="download">Download</button>
-		<script src="js/colorbrewer.js"></script>
-		<script src="js/jquery-3.6.0.min.js"></script>
 
-		<script type="module">
+<head>
+	<title>Tree generation example</title>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+	<link type="text/css" rel="stylesheet" href="css/main.css">
+	<style>
+		body {
+			background-color: #f0f0f0;
+			color: #444;
+			margin: 0px;
+		}
 
-			import * as THREE from './js/three.module.js';
-			//import { OrbitControls } from './js/OrbitControls.js';
-			import { TrackballControls } from './js/TrackballControls.js';
-			//import { Octree } from './js/Octree.js';
+		a {
+			color: #08f;
+		}
+	</style>
+</head>
 
-			import Stats from './js/jsm/libs/stats.module.js';
+<body>
+	<div style="position: fixed; bottom: 30px; left: 30px;"><span id="info"></span></div>
+	<button style="position: fixed; bottom: 30px; right: 30px;" id="download">Download</button>
+	<script src="js/colorbrewer.js"></script>
+	<script src="js/jquery-3.6.0.min.js"></script>
 
-			let container, stats;
-			let camera, scene, raycaster, renderer, parentTransform, sphereInter, controls;
+	<script type="module">
 
-			const pointer = new THREE.Vector2();
-			const radius = 100;
-			var t = {}; // the tree
-			var t2 = {};
-			var resolutionLimit = 0.0001; // don't create any factors smaller than this
+		import * as THREE from './js/three.module.js';
+		//import { OrbitControls } from './js/OrbitControls.js';
+		import { TrackballControls } from './js/TrackballControls.js';
+		//import { Octree } from './js/Octree.js';
+		import Stats from './js/jsm/libs/stats.module.js';
 
-			init();
-			animate();
+		let container, stats;
+		let camera, scene, raycaster, renderer, parentTransform, sphereInter, controls;
 
-			// lets create a tree that looks like a blood vessel network
-			// don't interfere with the tree2 if its defined
-			function createTree( label, tree2 ) {
-				var tree = { edges: [], vertices: [] };
-				var bbox = [-100, -100, -100, 100, 100, 100]; // xmin, ymin, xmax, ymax
-				var root = new THREE.Vector3();
-				root.set( bbox[0] + (bbox[3] - bbox[0]) / 2.0,
-				          bbox[1] + (bbox[4] - bbox[1]) / 2.0,
-						  bbox[2] + (bbox[5] - bbox[2]) / 2.0 ); // middle of everything
-				var startDiameter = 0.2;
-				var factorSmallerByBranch = 0.9; // both smaller diameter and short distance
-				var L = 1.0; // initial length
-				var reversalPoint = 0.01; // if the diameter is smaller than that, grow again
+		const pointer = new THREE.Vector2();
+		var t = {}; // the tree
+		var t2 = {};
+		var resolutionLimit = 0.0001; // don't create any factors smaller than this
 
-				tree.vertices.push( { point: root, diameter: startDiameter, side: label, direction: [-L, 0, 0], factor: L, children: 2, distance: 0, level: 0 });
-				var root2 = new THREE.Vector3();
-				root2.set( root.x + L, root.y, root.z );
-				tree.vertices.push( { point: root2, diameter: startDiameter, side: label, direction: [L,0,0], factor: L, children: 2, distance: L, level: 1 });
-				tree.edges.push( [0, 1] );
-				var root3 = new THREE.Vector3();
-				root3.set( root.x - L, root.y, root.z );
-				tree.vertices.push( { point: root3, diameter: startDiameter, side: label, direction: [-L,0,0], factor: L, children: 0, distance: L, level: 1 });
-				tree.edges.push( [0, 2] );
+		var tree_worker = undefined;
 
-				//var octree = new THREE.Octree();
-				//octree.add( root );
-				//octree.add( root2);
-				// add more complexity
-				// look for a random point
-				for (var counter = 0; counter < 8000; counter++) {
-					var searchIterations = 0;
-					while (true) {
-						var pickedNode = Math.floor(Math.random() * tree.vertices.length);
-						// instead of random picking lets do a breath first search
-						for (var i = 0; i < tree.vertices.length; i++) {
-							if (tree.vertices[i].children < 2) {
-								pickedNode = i;
-								break;
-							}
-						}
+		init();
+		animate();
+/*
+		// lets create a tree that looks like a blood vessel network
+		// don't interfere with the tree2 if its defined
+		function createTree(label, tree2) {
+			var tree = { edges: [], vertices: [] };
+			var bbox = [-100, -100, -100, 100, 100, 100]; // xmin, ymin, xmax, ymax
+			var root = new THREE.Vector3();
+			root.set(bbox[0] + (bbox[3] - bbox[0]) / 2.0,
+				bbox[1] + (bbox[4] - bbox[1]) / 2.0,
+				bbox[2] + (bbox[5] - bbox[2]) / 2.0); // middle of everything
+			var startDiameter = 0.2;
+			var factorSmallerByBranch = 0.9; // both smaller diameter and short distance
+			var L = 1.0; // initial length
+			var reversalPoint = 0.01; // if the diameter is smaller than that, grow again
 
-						var p = tree.vertices[pickedNode];
-						if (p.children > 2) {
-							if (++searchIterations > 100) {
-								console.log("could not find any vertex with less than 2 nodes...");
-								break;
-							}
-							continue; // we want at most 2 children
-						}
-						var side = label; // which tree this is
-						var factor = p.factor * factorSmallerByBranch;
-						if (factor < resolutionLimit)
-							factor = resolutionLimit;
-						var diam = p.diameter * factor;
-						if (diam < resolutionLimit) {
-							diam = resolutionLimit;
-						}
-						var dir = new THREE.Vector3(tree.vertices[pickedNode].direction[0], 
-												tree.vertices[pickedNode].direction[1],
-												tree.vertices[pickedNode].direction[2]);
-						dir = dir.normalize();
-						var pp = p.point.clone().add(dir.multiplyScalar(factor*0.5)); // momentum term
-						pp = pp.add(new THREE.Vector3((Math.random()-.5) * factor, (Math.random()-0.5) * factor, (Math.random()-0.5) * factor));
+			tree.vertices.push({ point: root, diameter: startDiameter, side: label, direction: [-L, 0, 0], factor: L, children: 2, distance: 0, level: 0 });
+			var root2 = new THREE.Vector3();
+			root2.set(root.x + L, root.y, root.z);
+			tree.vertices.push({ point: root2, diameter: startDiameter, side: label, direction: [L, 0, 0], factor: L, children: 2, distance: L, level: 1 });
+			tree.edges.push([0, 1]);
+			var root3 = new THREE.Vector3();
+			root3.set(root.x - L, root.y, root.z);
+			tree.vertices.push({ point: root3, diameter: startDiameter, side: label, direction: [-L, 0, 0], factor: L, children: 0, distance: L, level: 1 });
+			tree.edges.push([0, 2]);
 
-						var candidate = { point: pp,
-										  diameter: diam,
-										  side: side,
-										  distance: p.distance + p.point.distanceTo(pp),
-										  level: p.level + 1,
-										  children: 0, // count up how many children
-										  direction: [], factor: factor };
-						candidate.direction = candidate.point.clone().sub(p.point);
-
-						// test if the candidate overlaps with existing tree (true, otherwise false)
-						function testOverlap(tree, candidate) {
-							var point = candidate.point;
-							// return boolean to see if candidate overlaps with the existing tree
-							var line = new THREE.Line3();
-							for (var i = 0; i < tree.edges.length; i++) { // check for all line segments in the tree
-								var edge = tree.edges[i];
-								var C = new THREE.Vector3();
-								line.set(tree.vertices[edge[0]].point, tree.vertices[edge[1]].point).closestPointToPoint( point, true, C);
-								var distance = point.distanceTo( C );
-								// we want to be farther away than the diameters of both
-								var threshold = tree.vertices[edge[1]].diameter + candidate.diameter;
-								if (distance < threshold)
-									return true; // too close
-							}
-							return false;
-						}
-						if (!testOverlap(tree, candidate)) {
-							if (typeof tree2 != 'undefined') { // in this case don't intersect with the second tree
-								if (testOverlap(tree2, candidate)) {
-									if (++searchIterations > 100) {
-										console.log("too many search iterations, no more nodes found");
-										break; // without adding a node
-									}
-									continue; // adhere to the second tree, don't interfere with it
-								}
-							}
-							// append this candidate to the tree
-							tree.vertices[pickedNode].children++;
-							tree.vertices.push(candidate);
-							tree.edges.push([ pickedNode, tree.vertices.length-1 ]);
-							//octree.add(candidate.point);
-							/*if ((tree.vertices.length % 200) == 0) {
-								var id = document.getElementById("info");
-								id.innerText = tree.vertices.length;
-							} */
+			//var octree = new THREE.Octree();
+			//octree.add( root );
+			//octree.add( root2);
+			// add more complexity
+			// look for a random point
+			for (var counter = 0; counter < 8000; counter++) {
+				var searchIterations = 0;
+				while (true) {
+					var pickedNode = Math.floor(Math.random() * tree.vertices.length);
+					// instead of random picking lets do a breath first search
+					for (var i = 0; i < tree.vertices.length; i++) {
+						if (tree.vertices[i].children < 2) {
+							pickedNode = i;
 							break;
-						} 
-						if (++searchIterations > 100) {
-							console.log("too many search iterations, no more nodes found");
-							break; // without adding a node
 						}
 					}
-				}
-				return tree;
-			}
 
-			// if we have two trees, we should be able to connect them
+					var p = tree.vertices[pickedNode];
+					if (p.children > 2) {
+						if (++searchIterations > 100) {
+							console.log("could not find any vertex with less than 2 nodes...");
+							break;
+						}
+						continue; // we want at most 2 children
+					}
+					var side = label; // which tree this is
+					var factor = p.factor * factorSmallerByBranch;
+					if (factor < resolutionLimit)
+						factor = resolutionLimit;
+					var diam = p.diameter * factor;
+					if (diam < resolutionLimit) {
+						diam = resolutionLimit;
+					}
+					var dir = new THREE.Vector3(tree.vertices[pickedNode].direction[0],
+						tree.vertices[pickedNode].direction[1],
+						tree.vertices[pickedNode].direction[2]);
+					dir = dir.normalize();
+					var pp = p.point.clone().add(dir.multiplyScalar(factor * 0.5)); // momentum term
+					pp = pp.add(new THREE.Vector3((Math.random() - .5) * factor, (Math.random() - 0.5) * factor, (Math.random() - 0.5) * factor));
 
-			function init() {
+					var candidate = {
+						point: pp,
+						diameter: diam,
+						side: side,
+						distance: p.distance + p.point.distanceTo(pp),
+						level: p.level + 1,
+						children: 0, // count up how many children
+						direction: [], factor: factor
+					};
+					candidate.direction = candidate.point.clone().sub(p.point);
 
-				container = document.createElement( 'div' );
-				document.body.appendChild( container );
-
-				const info = document.createElement( 'div' );
-				info.style.position = 'absolute';
-				info.style.top = '10px';
-				info.style.width = '100%';
-				info.style.textAlign = 'center';
-				info.innerHTML = 'Tree generator';
-				container.appendChild( info );
-
-				camera = new THREE.PerspectiveCamera( 35, window.innerWidth / window.innerHeight, 0.01, 10000 );
-				camera.position.x = 10;
-				camera.position.y = 10;
-				camera.position.z = 0;
-				camera.lookAt( new THREE.Vector3(0,0,0) );
-				camera.updateMatrixWorld();
-
-
-				scene = new THREE.Scene();
-				scene.background = new THREE.Color( 0xb0b0b0 );
-
-				const geometry = new THREE.SphereGeometry( 0.1, 32, 32 );
-				const material = new THREE.MeshBasicMaterial( { color: 0xff0000 } );
-
-				sphereInter = new THREE.Mesh( geometry, material );
-				sphereInter.visible = false;
-				scene.add( sphereInter );
-
-				t = createTree('A', undefined);
-				t2 = createTree('B', t);
-
-				// color range
-				var minDiameter = 100;
-				var maxDiameter = 0;
-				for (var i = 0; i < t.vertices.length; i++) {
-					if (minDiameter > t.vertices[i].diameter)
-						minDiameter = t.vertices[i].diameter;
-					if (maxDiameter < t.vertices[i].diameter)
-						maxDiameter = t.vertices[i].diameter;
-				}
-				console.log("min max diameter " + minDiameter + " " + maxDiameter);
-				parentTransform = new THREE.Object3D();
-				function addTreeToScene( t ) {
-					var colormap = colorbrewer['Spectral'][11];
-					if (t.vertices[0].side == 'B')
-						colormap = colorbrewer['Pastel1'][8];
-					for (var edge = 0; edge < t.edges.length; edge++) {
-						var lineGeometry = new THREE.BufferGeometry();
-						var points = [];
-						var p1 = t.edges[edge][0];
-						var p2 = t.edges[edge][1];
-						points.push(t.vertices[p1].point.x, t.vertices[p1].point.y, t.vertices[p1].point.z);
-						points.push(t.vertices[p2].point.x, t.vertices[p2].point.y, t.vertices[p2].point.z);
-						
-						lineGeometry.setAttribute( 'position', new THREE.Float32BufferAttribute( points, 3));
-
-						var colorscale = [Math.log(minDiameter), Math.log(maxDiameter)];
-						var diam = Math.log(t.vertices[p2].diameter);
-						var idx = (diam - colorscale[0])/(colorscale[1]-colorscale[0]);
-						if (idx < 0)
-							idx = 0;
-						if (idx > 1)
-							idx = 1;
-						var idx = Math.floor(idx * (colormap.length-1));
-						var col = colormap[idx];
-
-						var lineMaterial = new THREE.LineBasicMaterial( { color: col } );
-						var object = new THREE.Line(lineGeometry, lineMaterial);
-						object.userData["points"] = [p1,p2];
-						parentTransform.add( object );
+					// test if the candidate overlaps with existing tree (true, otherwise false)
+					function testOverlap(tree, candidate) {
+						var point = candidate.point;
+						// return boolean to see if candidate overlaps with the existing tree
+						var line = new THREE.Line3();
+						for (var i = 0; i < tree.edges.length; i++) { // check for all line segments in the tree
+							var edge = tree.edges[i];
+							var C = new THREE.Vector3();
+							line.set(tree.vertices[edge[0]].point, tree.vertices[edge[1]].point).closestPointToPoint(point, true, C);
+							var distance = point.distanceTo(C);
+							// we want to be farther away than the diameters of both
+							var threshold = tree.vertices[edge[1]].diameter + candidate.diameter;
+							if (distance < threshold)
+								return true; // too close
+						}
+						return false;
+					}
+					if (!testOverlap(tree, candidate)) {
+						if (typeof tree2 != 'undefined') { // in this case don't intersect with the second tree
+							if (testOverlap(tree2, candidate)) {
+								if (++searchIterations > 100) {
+									console.log("too many search iterations, no more nodes found");
+									break; // without adding a node
+								}
+								continue; // adhere to the second tree, don't interfere with it
+							}
+						}
+						// append this candidate to the tree
+						tree.vertices[pickedNode].children++;
+						tree.vertices.push(candidate);
+						tree.edges.push([pickedNode, tree.vertices.length - 1]);
+						//octree.add(candidate.point);
+						break;
+					}
+					if (++searchIterations > 100) {
+						console.log("too many search iterations, no more nodes found");
+						break; // without adding a node
 					}
 				}
-				addTreeToScene(t);
-				addTreeToScene(t2);
-				scene.add( parentTransform );
-
-				raycaster = new THREE.Raycaster();
-				raycaster.params.Line.threshold = resolutionLimit;
-
-				renderer = new THREE.WebGLRenderer( { antialias: true } );
-				renderer.setPixelRatio( window.devicePixelRatio );
-				renderer.setSize( window.innerWidth, window.innerHeight );
-				renderer.gammaFactor = 2.2;
-				renderer.outputEncoding = THREE.sRGBEncoding;
-				container.appendChild( renderer.domElement );
-
-				//controls = new OrbitControls( camera, renderer.domElement );
-				controls = new TrackballControls( camera, renderer.domElement );
-				controls.update();
-				// call the renderer if the camera changes
-				//controls.addEventListener( 'change', () => renderer.render( scene, camera ) );
-
-				stats = new Stats();
-				container.appendChild( stats.dom );
-
-				document.addEventListener( 'pointermove', onPointerMove );
-
-				//
-
-				window.addEventListener( 'resize', onWindowResize );
-
 			}
+			return tree;
+		}
+*/
+		// if we have two trees, we should be able to connect them
+		var initDone = false;
+		function init() {
 
-			function onWindowResize() {
+			container = document.createElement('div');
+			document.body.appendChild(container);
 
-				camera.aspect = window.innerWidth / window.innerHeight;
-				camera.updateProjectionMatrix();
+			const info = document.createElement('div');
+			info.style.position = 'absolute';
+			info.style.top = '10px';
+			info.style.width = '100%';
+			info.style.textAlign = 'center';
+			info.innerHTML = 'Tree generator';
+			container.appendChild(info);
 
-				renderer.setSize( window.innerWidth, window.innerHeight );
+			camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.01, 10000);
+			camera.position.x = 10;
+			camera.position.y = 10;
+			camera.position.z = 0;
+			camera.lookAt(new THREE.Vector3(0, 0, 0));
+			camera.updateMatrixWorld();
 
-			}
 
-			function onPointerMove( event ) {
+			scene = new THREE.Scene();
+			scene.background = new THREE.Color(0xb0b0b0);
 
-				pointer.x = ( event.clientX / window.innerWidth ) * 2 - 1;
-				pointer.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+			const geometry = new THREE.SphereGeometry(0.01, 32, 32);
+			const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 
-			}
+			sphereInter = new THREE.Mesh(geometry, material);
+			sphereInter.visible = false;
+			scene.add(sphereInter);
 
 			//
-
-			function animate() {
-
-				requestAnimationFrame( animate );
-
-				controls.update();
-				render();
-				stats.update();
-
+			// create the trees
+			//
+			if (typeof (tree_worker) == "undefined") {
+				tree_worker = new Worker("js/tree_generator_worker.js");
+			}
+			if (tree_worker) {
+				tree_worker.onmessage = function (event) {
+					if (typeof (event.data["action"]) !== 'undefined' &&  event.data["action"] == "info") {
+						var d = document.getElementById("info");
+						d.innerText = event.data["text"] + " for " + event.data["label"];
+						return;
+					}
+					if (typeof (event.data['action']) !== 'undefined' && event.data['action'] == "READY" && !initDone) {
+						initDone = true;
+						console.log("the worker is ready with loading threejs, start creating tree.");
+						tree_worker.postMessage({
+							"label": 'A',
+							"tree2": undefined
+						});
+						return;
+					}
+					if (event.data['action'] == "message") {
+						if (typeof (event.data['text']) !== 'undefined') {
+							console.log(event.data['text']);
+						}
+						var label = 'A';
+						if (typeof (event.data["label"]) !== 'undefined') {
+							label = event.data["label"];
+						}
+						if (typeof (event.data["result"]) !== 'undefined') {
+							if (label == 'A') {
+								t = event.data["result"];
+								console.log("We got the first tree back from the worker!");
+								tree_worker.postMessage({
+									"label": 'B',
+									"tree2": t
+								});
+								return;
+							} else {
+								t2 = event.data["result"];
+								// now display everything
+								console.log("We got the second tree back from the worker!");
+								createVisualization([ t, t2 ]);
+							}
+						}
+					}
+				}
 			}
 
-			function render() {
 
-				camera.updateMatrixWorld();
+		}
 
-				// find intersections
+		function createVisualization(trees) {
+			//t = createTree('A', undefined);
+			//t2 = createTree('B', t);
+			if (trees.length == 0)
+				return;	
+			var t = trees[0];
 
-				/*raycaster.setFromCamera( pointer, camera );
+			// color range
+			var minDiameter = 100;
+			var maxDiameter = 0;
+			for (var i = 0; i < t.vertices.length; i++) {
+				if (minDiameter > t.vertices[i].diameter)
+					minDiameter = t.vertices[i].diameter;
+				if (maxDiameter < t.vertices[i].diameter)
+					maxDiameter = t.vertices[i].diameter;
+			}
+			console.log("min max diameter " + minDiameter + " " + maxDiameter);
+			parentTransform = new THREE.Object3D();
+			function addTreeToScene(t) {
+				var colormap = colorbrewer['Spectral'][11];
+				if (t.vertices[0].side == 'B')
+					colormap = colorbrewer['Pastel1'][8];
+				for (var edge = 0; edge < t.edges.length; edge++) {
+					var lineGeometry = new THREE.BufferGeometry();
+					var points = [];
+					var p1 = t.edges[edge][0];
+					var p2 = t.edges[edge][1];
+					points.push(t.vertices[p1].point.x, t.vertices[p1].point.y, t.vertices[p1].point.z);
+					points.push(t.vertices[p2].point.x, t.vertices[p2].point.y, t.vertices[p2].point.z);
 
-				const intersects = raycaster.intersectObjects( parentTransform.children, true );
+					lineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
 
-				if ( intersects.length > 0 ) {
+					var colorscale = [Math.log(minDiameter), Math.log(maxDiameter)];
+					var diam = Math.log(t.vertices[p2].diameter);
+					var idx = (diam - colorscale[0]) / (colorscale[1] - colorscale[0]);
+					if (idx < 0)
+						idx = 0;
+					if (idx > 1)
+						idx = 1;
+					var idx = Math.floor(idx * (colormap.length - 1));
+					var col = colormap[idx];
+
+					var lineMaterial = new THREE.LineBasicMaterial({ color: col });
+					var object = new THREE.Line(lineGeometry, lineMaterial);
+
+					object.userData["points"] = [p1, p2, t.vertices[p1].side];
+					parentTransform.add(object);
+				}
+			}
+			for (var i = 0; i < trees.length; i++) {
+				addTreeToScene(trees[i]);
+				//addTreeToScene(t2);
+			}
+			scene.add(parentTransform);
+
+			raycaster = new THREE.Raycaster();
+			raycaster.params.Line.threshold = 30 * resolutionLimit; // precision in world units (meter)
+
+			renderer = new THREE.WebGLRenderer({ antialias: true });
+			renderer.setPixelRatio(window.devicePixelRatio);
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			renderer.gammaFactor = 2.2;
+			renderer.outputEncoding = THREE.sRGBEncoding;
+			container.appendChild(renderer.domElement);
+
+			//controls = new OrbitControls( camera, renderer.domElement );
+			controls = new TrackballControls(camera, renderer.domElement);
+			controls.update();
+			// call the renderer if the camera changes
+			//controls.addEventListener( 'change', () => renderer.render( scene, camera ) );
+
+			stats = new Stats();
+			container.appendChild(stats.dom);
+
+			document.addEventListener('pointermove', onPointerMove);
+
+			window.addEventListener('resize', onWindowResize);
+		}
+
+		function onWindowResize() {
+
+			camera.aspect = window.innerWidth / window.innerHeight;
+			camera.updateProjectionMatrix();
+
+			renderer.setSize(window.innerWidth, window.innerHeight);
+
+		}
+
+		function onPointerMove(event) {
+
+			pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+			pointer.y = - (event.clientY / window.innerHeight) * 2 + 1;
+
+		}
+
+		//
+		function animate() {
+
+			requestAnimationFrame(animate);
+			if (typeof controls != 'undefined')
+				controls.update();
+			if (typeof(renderer) != 'undefined' && typeof(renderer.render) != 'undefined')
+				render();
+			if (typeof stats != 'undefined')
+				stats.update();
+		}
+		var oldPointer = { x: 0, y: 0 };
+		function render() {
+
+			camera.updateMatrixWorld();
+
+			// find intersections
+			if (typeof oldPointer == 'undefined') {
+				oldPointer = { x: 0, y: 0 };
+			}
+			if (pointer.x != oldPointer.x || pointer.y != oldPointer.y) {
+				oldPointer.x = pointer.x; oldPointer.y = pointer.y;
+				raycaster.setFromCamera(pointer, camera);
+				var timeA = new Date().getTime();
+				const intersects = raycaster.intersectObjects(parentTransform.children, true);
+				var timeB = new Date().getTime();
+				//console.log("end intersection test " + (timeB - timeA) + "sec with " + intersects.length + " found intersections.");
+
+				if (intersects.length > 0) {
 
 					sphereInter.visible = true;
-					sphereInter.position.copy( intersects[ 0 ].point );
+					sphereInter.position.copy(intersects[0].point);
 					var dat = intersects[0].object.userData.points;
 					//console.log("we have the information about the line in userData: " + dat[0] + " " + dat[1]);
 					//console.log("diameter: " + t.vertices[dat[0]].diameter);
 					var d = document.getElementById("info");
-					d.innerText = "diameter: " + t.vertices[dat[1]].diameter.toFixed(4) + " closest point: " + dat[1];
+					d.innerText = "diameter: " + t.vertices[dat[1]].diameter.toFixed(4) + " closest points: [" + dat[1] + "," + dat[0] + "], tree: " + dat[2];
 				} else {
-
 					sphereInter.visible = false;
-
-				} */
-
-				renderer.render( scene, camera );
-
+				}
 			}
-			var txtAsCsv2 = "";
 
-			jQuery(document).ready(function()  {
-				jQuery('#download').on('click',  function() {
-					console.log("download data as csv");
-					var txtAsCsv = "";
-					//  add the tree A and the tree B
-					var  header = [ "nodenum",  "nodecoord_x", "nodecoord_y", "nodecoord_z", "isroot", "subnetwork", "level" ];
-					txtAsCsv += header.join(",") + "\n";
-					for (var i  = 0; i < t.vertices.length; i++) {
-						txtAsCsv += i + "," + t.vertices[i].point.x + "," + t.vertices[i].point.y + "," + t.vertices[i].point.z + "," + (i==0?"1":"0") + ",0," + t.vertices[i].level + "\n";
-					}
-					for (var i  = 0; i < t2.vertices.length; i++) {
-						txtAsCsv += (i + t.vertices.length) + "," + t2.vertices[i].point.x + "," + t2.vertices[i].point.y + "," + t2.vertices[i].point.z + "," + (i==0?"1":"0") + ",1," + t.vertices[i].level + "\n";
-					}
+			renderer.render(scene, camera);
 
-					var file_path = "data:application/csv;charset=utf-8," + encodeURI(txtAsCsv);
+		}
+		var txtAsCsv2 = "";
+
+		jQuery(document).ready(function () {
+			jQuery('#download').on('click', function () {
+				console.log("download data as csv");
+				var txtAsCsv = "";
+				//  add the tree A and the tree B
+				var header = ["nodenum", "nodecoord_x", "nodecoord_y", "nodecoord_z", "isroot", "subnetwork", "level"];
+				txtAsCsv += header.join(",") + "\n";
+				for (var i = 0; i < t.vertices.length; i++) {
+					txtAsCsv += i + "," + t.vertices[i].point.x + "," + t.vertices[i].point.y + "," + t.vertices[i].point.z + "," + (i == 0 ? "1" : "0") + ",0," + t.vertices[i].level + "\n";
+				}
+				for (var i = 0; i < t2.vertices.length; i++) {
+					txtAsCsv += (i + t.vertices.length) + "," + t2.vertices[i].point.x + "," + t2.vertices[i].point.y + "," + t2.vertices[i].point.z + "," + (i == 0 ? "1" : "0") + ",1," + t.vertices[i].level + "\n";
+				}
+
+				var file_path = "data:application/csv;charset=utf-8," + encodeURI(txtAsCsv);
+				var a = document.createElement("A");
+				a.href = file_path;
+				a.download = "vertices.csv";
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+
+				header = ["edgesnum", "nodeconn_1", "nodeconn_2", "diameter", "length"];
+				txtAsCsv2 = "";
+				txtAsCsv2 += header.join(",") + "\n";
+				for (var i = 0; i < t.edges.length; i++) {
+					var idx = t.edges[i][1];
+					txtAsCsv2 += i + "," + t.edges[i][0] + "," + t.edges[i][1] + "," + t.vertices[idx].diameter + "," + t.vertices[idx].distance + "\n";
+				}
+				for (var i = 0; i < t2.edges.length; i++) {
+					var idx = t2.edges[i][1];
+					txtAsCsv2 += (i + t.vertices.length) + "," + (t2.edges[i][0] + t.vertices.length) + "," + (t2.edges[i][1] + t.vertices.length) + "," + t2.vertices[idx].diameter + "," + t2.vertices[idx].distance + "\n";
+				}
+
+				setTimeout(function () {
+					var file_path = "data:application/csv;charset=utf-8," + encodeURI(txtAsCsv2);
 					var a = document.createElement("A");
 					a.href = file_path;
-					a.download = "vertices.csv";
+					a.download = "edges.csv";
 					document.body.appendChild(a);
 					a.click();
 					document.body.removeChild(a);
+				}, 1000);
 
-					header  = [ "edgesnum", "nodeconn_1",  "nodeconn_2", "diameter",  "length" ];
-					txtAsCsv2 = "";
-					txtAsCsv2 += header.join(",") + "\n";
-					for (var i  = 0; i < t.edges.length; i++) {
-						var idx = t.edges[i][1];
-						txtAsCsv2 += i + "," + t.edges[i][0] + "," + t.edges[i][1] + "," + t.vertices[idx].diameter + "," + t.vertices[idx].distance + "\n";
-					}
-					for (var i = 0; i < t2.edges.length; i++) {
-						var idx = t2.edges[i][1];
-						txtAsCsv2 += (i + t.vertices.length) + "," + (t2.edges[i][0] + t.vertices.length) + "," + (t2.edges[i][1] + t.vertices.length) + "," + t2.vertices[idx].diameter + "," + t2.vertices[idx].distance + "\n";
-					}
+			});
+		})
 
-					setTimeout(function() {
-						var file_path = "data:application/csv;charset=utf-8," + encodeURI(txtAsCsv2);
-						var a = document.createElement("A");
-						a.href = file_path;
-						a.download = "edges.csv";
-						document.body.appendChild(a);
-						a.click();
-						document.body.removeChild(a);
-					}, 1000);
-
-				});
-			})
-
-		</script>
+	</script>
 
 
-	</body>
+</body>
+
 </html>
