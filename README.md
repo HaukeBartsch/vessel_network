@@ -22,7 +22,7 @@ Navigate to the web-address (localhost:3000). You need to wait for the tree gene
 
 ### Remarks
 
-The first tree 'A' is created first. The second tree 'B' will be grown afterwards. It would be better to grow both trees at the same time.
+The first tree 'A' is created first. The second tree 'B' will be grown afterwards. It would be better to grow both trees at the same time. Right now the first tree can crowd out the space and the second tree cannot find a corner to grow from.
 
 The nodes are added in each tree based on a breath first search manner. The number of possible segments starting from any segments end point is 2.
 
@@ -34,4 +34,3 @@ We should preferably grow segments in directions that have a low density of segm
 
 The diameter of vessels should correspond to the volume of blood in the sub-tree that is downstream. Vessels that reach a large area without segments could grow in diameter.
 
-The tree generation should be done in a worker to speed up processing.
