@@ -30,7 +30,6 @@
 		import * as THREE from './js/three.module.js';
 		//import { OrbitControls } from './js/OrbitControls.js';
 		import { TrackballControls } from './js/TrackballControls.js';
-		//import { Octree } from './js/Octree.js';
 		import Stats from './js/jsm/libs/stats.module.js';
 
 		let container, stats;
@@ -295,7 +294,7 @@
 					var lineMaterial = new THREE.LineBasicMaterial({ color: col });
 					var object = new THREE.Line(lineGeometry, lineMaterial);
 
-					object.userData["points"] = [p1, p2, t.vertices[p1].side];
+					object.userData["points"] = [p1, p2, t.vertices[p1].side, t.vertices[p1].level];
 					parentTransform.add(object);
 				}
 			}
@@ -381,7 +380,7 @@
 					//console.log("we have the information about the line in userData: " + dat[0] + " " + dat[1]);
 					//console.log("diameter: " + t.vertices[dat[0]].diameter);
 					var d = document.getElementById("info");
-					d.innerText = "diameter: " + t.vertices[dat[1]].diameter.toFixed(4) + " closest points: [" + dat[1] + "," + dat[0] + "], tree: " + dat[2];
+					d.innerText = "Level: " + dat[3]+ ", diameter: " + t.vertices[dat[1]].diameter.toFixed(4) + " closest points: [" + dat[1] + "," + dat[0] + "], tree: " + dat[2];
 				} else {
 					sphereInter.visible = false;
 				}

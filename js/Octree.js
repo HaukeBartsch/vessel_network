@@ -1,464 +1,445 @@
-import {
-	Box3,
-	Line3,
-	Plane,
-	Sphere,
-	Triangle,
-	Vector3
-} from './three.module.js';
-import { Capsule } from './Capsule.js';
-
-
-const _v1 = new Vector3();
-const _v2 = new Vector3();
-const _plane = new Plane();
-const _line1 = new Line3();
-const _line2 = new Line3();
-const _sphere = new Sphere();
-const _capsule = new Capsule();
 
 class Octree {
 
-
-	constructor( box ) {
-
-		this.triangles = [];
-		this.box = box;
-		this.subTrees = [];
-
+	constructor(position, size, accuracy) {
+		this.maxDistance = Math.max(size.x, Math.max(size.y, size.z));
+		this.accuracy = 0;
+		this.root = new Cell(this, position, size, 0);
 	}
 
-	addTriangle( triangle ) {
+	/*export function Octree(position, size, accuracy) {
+		this.maxDistance = Math.max(size.x, Math.max(size.y, size.z));
+		this.accuracy = 0;
+		this.root = new Octree.Cell(this, position, size, 0);
+	}*/
 
-		if ( ! this.bounds ) this.bounds = new Box3();
+	fromBoundingBox(bbox) {
+		return new Octree(bbox.min.clone(), bbox.getSize().clone());
+	};
 
-		this.bounds.min.x = Math.min( this.bounds.min.x, triangle.a.x, triangle.b.x, triangle.c.x );
-		this.bounds.min.y = Math.min( this.bounds.min.y, triangle.a.y, triangle.b.y, triangle.c.y );
-		this.bounds.min.z = Math.min( this.bounds.min.z, triangle.a.z, triangle.b.z, triangle.c.z );
-		this.bounds.max.x = Math.max( this.bounds.max.x, triangle.a.x, triangle.b.x, triangle.c.x );
-		this.bounds.max.y = Math.max( this.bounds.max.y, triangle.a.y, triangle.b.y, triangle.c.y );
-		this.bounds.max.z = Math.max( this.bounds.max.z, triangle.a.z, triangle.b.z, triangle.c.z );
+	MaxLevel = 8;
 
-		this.triangles.push( triangle );
+	add(p, data) {
+		this.root.add(p, data);
+	};
 
-		return this;
+	has(p) {
+		return this.root.has(p);
+	};
 
-	}
+	findNearestPoint(p, options) {
+		options.includeData = options.includeData ? options.includeData : false;
+		options.bestDist = options.maxDist ? options.maxDist : Infinity;
+		options.notSelf = options.notSelf ? options.notSelf : false;
 
-	calcBox() {
+		var result = this.root.findNearestPoint(p, options);
+		if (result) {
+			if (options.includeData) return result;
+			else return result.point;
+		}
+		else return null;
+	};
 
-		this.box = this.bounds.clone();
+	findNearbyPoints(p, r, options) {
+		options = options || {};
+		var result = { points: [], data: [] };
+		this.root.findNearbyPoints(p, r, result, options);
+		return result;
+	};
 
-		// offset small ammount to account for regular grid
-		this.box.min.x -= 0.01;
-		this.box.min.y -= 0.01;
-		this.box.min.z -= 0.01;
-
-		return this;
-
-	}
-
-	split( level ) {
-
-		if ( ! this.box ) return;
-
-		const subTrees = [];
-		const halfsize = _v2.copy( this.box.max ).sub( this.box.min ).multiplyScalar( 0.5 );
-
-		for ( let x = 0; x < 2; x ++ ) {
-
-			for ( let y = 0; y < 2; y ++ ) {
-
-				for ( let z = 0; z < 2; z ++ ) {
-
-					const box = new Box3();
-					const v = _v1.set( x, y, z );
-
-					box.min.copy( this.box.min ).add( v.multiply( halfsize ) );
-					box.max.copy( box.min ).add( halfsize );
-
-					subTrees.push( new Octree( box ) );
-
-				}
-
+	getAllCellsAtLevel(cell, level, result) {
+		if (typeof level == 'undefined') {
+			level = cell;
+			cell = this.root;
+		}
+		result = result || [];
+		if (cell.level == level) {
+			if (cell.points.length > 0) {
+				result.push(cell);
 			}
-
+			return result;
+		} else {
+			cell.children.forEach(function (child) {
+				this.getAllCellsAtLevel(child, level, result);
+			}.bind(this));
+			return result;
 		}
-
-		let triangle;
-
-		while ( triangle = this.triangles.pop() ) {
-
-			for ( let i = 0; i < subTrees.length; i ++ ) {
-
-				if ( subTrees[ i ].box.intersectsTriangle( triangle ) ) {
-
-					subTrees[ i ].triangles.push( triangle );
-
-				}
-
-			}
-
-		}
-
-		for ( let i = 0; i < subTrees.length; i ++ ) {
-
-			const len = subTrees[ i ].triangles.length;
-
-			if ( len > 8 && level < 16 ) {
-
-				subTrees[ i ].split( level + 1 );
-
-			}
-
-			if ( len !== 0 ) {
-
-				this.subTrees.push( subTrees[ i ] );
-
-			}
-
-		}
-
-		return this;
-
-	}
-
-	build() {
-
-		this.calcBox();
-		this.split( 0 );
-
-		return this;
-
-	}
-
-	getRayTriangles( ray, triangles ) {
-
-		for ( let i = 0; i < this.subTrees.length; i ++ ) {
-
-			const subTree = this.subTrees[ i ];
-			if ( ! ray.intersectsBox( subTree.box ) ) continue;
-
-			if ( subTree.triangles.length > 0 ) {
-
-				for ( let j = 0; j < subTree.triangles.length; j ++ ) {
-
-					if ( triangles.indexOf( subTree.triangles[ j ] ) === - 1 ) triangles.push( subTree.triangles[ j ] );
-
-				}
-
-			} else {
-
-				subTree.getRayTriangles( ray, triangles );
-
-			}
-
-		}
-
-		return triangles;
-
-	}
-
-	triangleCapsuleIntersect( capsule, triangle ) {
-
-		triangle.getPlane( _plane );
-
-		const d1 = _plane.distanceToPoint( capsule.start ) - capsule.radius;
-		const d2 = _plane.distanceToPoint( capsule.end ) - capsule.radius;
-
-		if ( ( d1 > 0 && d2 > 0 ) || ( d1 < - capsule.radius && d2 < - capsule.radius ) ) {
-
-			return false;
-
-		}
-
-		const delta = Math.abs( d1 / ( Math.abs( d1 ) + Math.abs( d2 ) ) );
-		const intersectPoint = _v1.copy( capsule.start ).lerp( capsule.end, delta );
-
-		if ( triangle.containsPoint( intersectPoint ) ) {
-
-			return { normal: _plane.normal.clone(), point: intersectPoint.clone(), depth: Math.abs( Math.min( d1, d2 ) ) };
-
-		}
-
-		const r2 = capsule.radius * capsule.radius;
-
-		const line1 = _line1.set( capsule.start, capsule.end );
-
-		const lines = [
-			[ triangle.a, triangle.b ],
-			[ triangle.b, triangle.c ],
-			[ triangle.c, triangle.a ]
-		];
-
-		for ( let i = 0; i < lines.length; i ++ ) {
-
-			const line2 = _line2.set( lines[ i ][ 0 ], lines[ i ][ 1 ] );
-
-			const [ point1, point2 ] = capsule.lineLineMinimumPoints( line1, line2 );
-
-			if ( point1.distanceToSquared( point2 ) < r2 ) {
-
-				return { normal: point1.clone().sub( point2 ).normalize(), point: point2.clone(), depth: capsule.radius - point1.distanceTo( point2 ) };
-
-			}
-
-		}
-
-		return false;
-
-	}
-
-	triangleSphereIntersect( sphere, triangle ) {
-
-		triangle.getPlane( _plane );
-
-		if ( ! sphere.intersectsPlane( _plane ) ) return false;
-
-		const depth = Math.abs( _plane.distanceToSphere( sphere ) );
-		const r2 = sphere.radius * sphere.radius - depth * depth;
-
-		const plainPoint = _plane.projectPoint( sphere.center, _v1 );
-
-		if ( triangle.containsPoint( sphere.center ) ) {
-
-			return { normal: _plane.normal.clone(), point: plainPoint.clone(), depth: Math.abs( _plane.distanceToSphere( sphere ) ) };
-
-		}
-
-		const lines = [
-			[ triangle.a, triangle.b ],
-			[ triangle.b, triangle.c ],
-			[ triangle.c, triangle.a ]
-		];
-
-		for ( let i = 0; i < lines.length; i ++ ) {
-
-			_line1.set( lines[ i ][ 0 ], lines[ i ][ 1 ] );
-			_line1.closestPointToPoint( plainPoint, true, _v2 );
-
-			const d = _v2.distanceToSquared( sphere.center );
-
-			if ( d < r2 ) {
-
-				return { normal: sphere.center.clone().sub( _v2 ).normalize(), point: _v2.clone(), depth: sphere.radius - Math.sqrt( d ) };
-
-			}
-
-		}
-
-		return false;
-
-	}
-
-	getSphereTriangles( sphere, triangles ) {
-
-		for ( let i = 0; i < this.subTrees.length; i ++ ) {
-
-			const subTree = this.subTrees[ i ];
-
-			if ( ! sphere.intersectsBox( subTree.box ) ) continue;
-
-			if ( subTree.triangles.length > 0 ) {
-
-				for ( let j = 0; j < subTree.triangles.length; j ++ ) {
-
-					if ( triangles.indexOf( subTree.triangles[ j ] ) === - 1 ) triangles.push( subTree.triangles[ j ] );
-
-				}
-
-			} else {
-
-				subTree.getSphereTriangles( sphere, triangles );
-
-			}
-
-		}
-
-	}
-
-	getCapsuleTriangles( capsule, triangles ) {
-
-		for ( let i = 0; i < this.subTrees.length; i ++ ) {
-
-			const subTree = this.subTrees[ i ];
-
-			if ( ! capsule.intersectsBox( subTree.box ) ) continue;
-
-			if ( subTree.triangles.length > 0 ) {
-
-				for ( let j = 0; j < subTree.triangles.length; j ++ ) {
-
-					if ( triangles.indexOf( subTree.triangles[ j ] ) === - 1 ) triangles.push( subTree.triangles[ j ] );
-
-				}
-
-			} else {
-
-				subTree.getCapsuleTriangles( capsule, triangles );
-
-			}
-
-		}
-
-	}
-
-	sphereIntersect( sphere ) {
-
-		_sphere.copy( sphere );
-
-		const triangles = [];
-		let result, hit = false;
-
-		this.getSphereTriangles( sphere, triangles );
-
-		for ( let i = 0; i < triangles.length; i ++ ) {
-
-			if ( result = this.triangleSphereIntersect( _sphere, triangles[ i ] ) ) {
-
-				hit = true;
-
-				_sphere.center.add( result.normal.multiplyScalar( result.depth ) );
-
-			}
-
-		}
-
-		if ( hit ) {
-
-			const collisionVector = _sphere.center.clone().sub( sphere.center );
-			const depth = collisionVector.length();
-
-			return { normal: collisionVector.normalize(), depth: depth };
-
-		}
-
-		return false;
-
-	}
-
-	capsuleIntersect( capsule ) {
-
-		_capsule.copy( capsule );
-
-		const triangles = [];
-		let result, hit = false;
-
-		this.getCapsuleTriangles( _capsule, triangles );
-
-		for ( let i = 0; i < triangles.length; i ++ ) {
-
-			if ( result = this.triangleCapsuleIntersect( _capsule, triangles[ i ] ) ) {
-
-				hit = true;
-
-				_capsule.translate( result.normal.multiplyScalar( result.depth ) );
-
-			}
-
-		}
-
-		if ( hit ) {
-
-			const collisionVector = _capsule.getCenter( new Vector3() ).sub( capsule.getCenter( _v1 ) );
-			const depth = collisionVector.length();
-
-			return { normal: collisionVector.normalize(), depth: depth };
-
-		}
-
-		return false;
-
-	}
-
-	rayIntersect( ray ) {
-
-		if ( ray.direction.length() === 0 ) return;
-
-		const triangles = [];
-		let triangle, position, distance = 1e100;
-
-		this.getRayTriangles( ray, triangles );
-
-		for ( let i = 0; i < triangles.length; i ++ ) {
-
-			const result = ray.intersectTriangle( triangles[ i ].a, triangles[ i ].b, triangles[ i ].c, true, _v1 );
-
-			if ( result ) {
-
-				const newdistance = result.sub( ray.origin ).length();
-
-				if ( distance > newdistance ) {
-
-					position = result.clone().add( ray.origin );
-					distance = newdistance;
-					triangle = triangles[ i ];
-
-				}
-
-			}
-
-		}
-
-		return distance < 1e100 ? { distance: distance, triangle: triangle, position: position } : false;
-
-	}
-
-	fromGraphNode( group ) {
-
-		group.traverse( ( obj ) => {
-
-			if ( obj.type === 'Mesh' ) {
-
-				obj.updateMatrix();
-				obj.updateWorldMatrix();
-
-				let geometry, isTemp = false;
-
-				if ( obj.geometry.index ) {
-
-					isTemp = true;
-					geometry = obj.geometry.clone().toNonIndexed();
-
-				} else {
-
-					geometry = obj.geometry;
-
-				}
-
-				const positions = geometry.attributes.position.array;
-				const transform = obj.matrixWorld;
-
-				for ( let i = 0; i < positions.length; i += 9 ) {
-
-					const v1 = new Vector3( positions[ i ], positions[ i + 1 ], positions[ i + 2 ] );
-					const v2 = new Vector3( positions[ i + 3 ], positions[ i + 4 ], positions[ i + 5 ] );
-					const v3 = new Vector3( positions[ i + 6 ], positions[ i + 7 ], positions[ i + 8 ] );
-
-					v1.applyMatrix4( transform );
-					v2.applyMatrix4( transform );
-					v3.applyMatrix4( transform );
-
-					this.addTriangle( new Triangle( v1, v2, v3 ) );
-
-				}
-
-				if ( isTemp ) {
-
-					geometry.dispose();
-
-				}
-
-			}
-
-		} );
-
-		this.build();
-
-		return this;
-
-	}
-
+	};
 }
 
-export { Octree };
+class Cell {
+	constructor(tree, position, size, level) {
+		this.tree = tree;
+		this.position = position;
+		this.size = size;
+		this.level = level;
+		this.points = [];
+		this.data = [];
+		this.temp = new Vec3(); //temp vector for distance calculation
+		this.children = [];
+	};
+
+	has(p) {
+		if (!this.contains(p))
+			return null;
+		if (this.children.length > 0) {
+			for (var i = 0; i < this.children.length; i++) {
+				var duplicate = this.children[i].has(p);
+				if (duplicate) {
+					return duplicate;
+				}
+			}
+			return null;
+		} else {
+			var minDistSqrt = this.tree.accuracy * this.tree.accuracy;
+			for (var i = 0; i < this.points.length; i++) {
+				var o = this.points[i];
+				var distSq = p.squareDistance(o);
+				if (distSq <= minDistSqrt) {
+					return o;
+				}
+			}
+			return null;
+		}
+	};
+
+	add(p, data) {
+		this.points.push(p);
+		this.data.push(data);
+		if (this.children.length > 0) {
+			this.addToChildren(p, data);
+		} else {
+			if (this.points.length > 1 && this.level < Octree.MaxLevel) {
+				this.split();
+			}
+		}
+	};
+
+	addToChildren(p, data) {
+		for (var i = 0; i < this.children.length; i++) {
+			if (this.children[i].contains(p)) {
+				this.children[i].add(p, data);
+				break;
+			}
+		}
+	};
+
+	contains(p) {
+		return p.x >= this.position.x - this.tree.accuracy
+			&& p.y >= this.position.y - this.tree.accuracy
+			&& p.z >= this.position.z - this.tree.accuracy
+			&& p.x < this.position.x + this.size.x + this.tree.accuracy
+			&& p.y < this.position.y + this.size.y + this.tree.accuracy
+			&& p.z < this.position.z + this.size.z + this.tree.accuracy;
+	};
+
+	split() {
+		var x = this.position.x;
+		var y = this.position.y;
+		var z = this.position.z;
+		var w2 = this.size.x / 2;
+		var h2 = this.size.y / 2;
+		var d2 = this.size.z / 2;
+		this.children.push(new Octree.Cell(this.tree, Vec3.create(x, y, z), Vec3.create(w2, h2, d2), this.level + 1));
+		this.children.push(new Octree.Cell(this.tree, Vec3.create(x + w2, y, z), Vec3.create(w2, h2, d2), this.level + 1));
+		this.children.push(new Octree.Cell(this.tree, Vec3.create(x, y, z + d2), Vec3.create(w2, h2, d2), this.level + 1));
+		this.children.push(new Octree.Cell(this.tree, Vec3.create(x + w2, y, z + d2), Vec3.create(w2, h2, d2), this.level + 1));
+		this.children.push(new Octree.Cell(this.tree, Vec3.create(x, y + h2, z), Vec3.create(w2, h2, d2), this.level + 1));
+		this.children.push(new Octree.Cell(this.tree, Vec3.create(x + w2, y + h2, z), Vec3.create(w2, h2, d2), this.level + 1));
+		this.children.push(new Octree.Cell(this.tree, Vec3.create(x, y + h2, z + d2), Vec3.create(w2, h2, d2), this.level + 1));
+		this.children.push(new Octree.Cell(this.tree, Vec3.create(x + w2, y + h2, z + d2), Vec3.create(w2, h2, d2), this.level + 1));
+		for (var i = 0; i < this.points.length; i++) {
+			this.addToChildren(this.points[i], this.data[i]);
+		}
+	};
+
+	squareDistanceToCenter(p) {
+		var dx = p.x - (this.position.x + this.size.x / 2);
+		var dy = p.y - (this.position.y + this.size.y / 2);
+		var dz = p.z - (this.position.z + this.size.z / 2);
+		return dx * dx + dy * dy + dz * dz;
+	}
+
+	findNearestPoint(p, options) {
+		var nearest = null;
+		var nearestData = null;
+		var bestDist = options.bestDist;
+
+		if (this.points.length > 0 && this.children.length == 0) {
+			for (var i = 0; i < this.points.length; i++) {
+				var dist = this.points[i].distance(p);
+				if (dist <= bestDist) {
+					if (dist == 0 && options.notSelf)
+						continue;
+					bestDist = dist;
+					nearest = this.points[i];
+					nearestData = this.data[i];
+				}
+			}
+		}
+
+		var children = this.children;
+
+		var children = this.children
+			.map(function (child) { return { child: child, dist: child.squareDistanceToCenter(p) } })
+			.sort(function (a, b) { return a.dist - b.dist; })
+			.map(function (c) { return c.child; });
+
+		if (children.length > 0) {
+			for (var i = 0; i < children.length; i++) {
+				var child = children[i];
+				if (child.points.length > 0) {
+					if (p.x < child.position.x - bestDist || p.x > child.position.x + child.size.x + bestDist ||
+						p.y < child.position.y - bestDist || p.y > child.position.y + child.size.y + bestDist ||
+						p.z < child.position.z - bestDist || p.z > child.position.z + child.size.z + bestDist
+					) {
+						continue;
+					}
+					var childNearest = child.findNearestPoint(p, options);
+					if (!childNearest || !childNearest.point) {
+						continue;
+					}
+					var childNearestDist = childNearest.point.distance(p);
+					if (childNearestDist < bestDist) {
+						nearest = childNearest.point;
+						bestDist = childNearestDist;
+						nearestData = childNearest.data;
+					}
+				}
+			}
+		}
+		return {
+			point: nearest,
+			data: nearestData
+		}
+	};
+
+	findNearbyPoints(p, r, result, options) {
+		if (this.points.length > 0 && this.children.length == 0) {
+			for (var i = 0; i < this.points.length; i++) {
+				var dist = this.points[i].distance(p);
+				if (dist <= r) {
+					if (dist == 0 && options.notSelf)
+						continue;
+					result.points.push(this.points[i]);
+					if (options.includeData) result.data.push(this.data[i]);
+				}
+			}
+		}
+		var children = this.children;
+
+		if (children.length > 0) {
+			for (var i = 0; i < children.length; i++) {
+				var child = children[i];
+				if (child.points.length > 0) {
+					if (p.x < child.position.x - r || p.x > child.position.x + child.size.x + r ||
+						p.y < child.position.y - r || p.y > child.position.y + child.size.y + r ||
+						p.z < child.position.z - r || p.z > child.position.z + child.size.z + r
+					) {
+						continue;
+					}
+					child.findNearbyPoints(p, r, result, options);
+				}
+			}
+		}
+	};
+}
+
+class Vec3 {
+	constructor(x, y, z) {
+		this.x = x != null ? x : 0;
+		this.y = y != null ? y : 0;
+		this.z = z != null ? z : 0;
+
+	}
+ 
+	create(x, y, z) {
+		return new Vec3(x, y, z);
+	  };
+
+    Zero() {
+		return new Vec3(0, 0, 0);
+	}
+
+
+	  fromArray(a) {
+		return new Vec3(a[0], a[1], a[2]);
+	  }
+
+	  set(x, y, z) {
+		this.x = x;
+		this.y = y;
+		this.z = z;
+		return this;
+	  };
+
+	  setVec3(v) {
+		this.x = v.x;
+		this.y = v.y;
+		this.z = v.z;
+		return this;
+	  };
+
+	  equals(v, tolerance) {
+		if (tolerance == undefined) {
+		  tolerance = 0.0000001;
+		}
+		return (Math.abs(v.x - this.x) <= tolerance) && (Math.abs(v.y - this.y) <= tolerance) && (Math.abs(v.z - this.z) <= tolerance);
+	  };
+
+	  add(v) {
+		this.x += v.x;
+		this.y += v.y;
+		this.z += v.z;
+		return this;
+	  };
+	  sub(v) {
+		this.x -= v.x;
+		this.y -= v.y;
+		this.z -= v.z;
+		return this;
+	  };
+	  scale(f) {
+		this.x *= f;
+		this.y *= f;
+		this.z *= f;
+		return this;
+	  };
+
+	  distance(v) {
+		var dx = v.x - this.x;
+		var dy = v.y - this.y;
+		var dz = v.z - this.z;
+		return Math.sqrt(dx * dx + dy * dy + dz * dz);
+	  };
+
+	  squareDistance(v) {
+		var dx = v.x - this.x;
+		var dy = v.y - this.y;
+		var dz = v.z - this.z;
+		return dx * dx + dy * dy + dz * dz;
+	  };
+
+	  simpleDistance(v) {
+		var dx = Math.abs(v.x - this.x);
+		var dy = Math.abs(v.y - this.y);
+		var dz = Math.abs(v.z - this.z);
+		return Math.min(dx, dy, dz);
+	  };
+
+	  copy(v) {
+		this.x = v.x;
+		this.y = v.y;
+		this.z = v.z;
+		return this;
+	  };
+
+	  clone() {
+		return new Vec3(this.x, this.y, this.z);
+	  };
+	  dup() {
+		return this.clone();
+	  };
+	  dot(b) {
+		return this.x * b.x + this.y * b.y + this.z * b.z;
+	  };
+
+	  cross(v) {
+		var x = this.x;
+		var y = this.y;
+		var z = this.z;
+		var vx = v.x;
+		var vy = v.y;
+		var vz = v.z;
+		this.x = y * vz - z * vy;
+		this.y = z * vx - x * vz;
+		this.z = x * vy - y * vx;
+		return this;
+	  };
+	  asAdd(a, b) {
+		this.x = a.x + b.x;
+		this.y = a.y + b.y;
+		this.z = a.z + b.z;
+		return this;
+	  };
+	  asSub(a, b) {
+		this.x = a.x - b.x;
+		this.y = a.y - b.y;
+		this.z = a.z - b.z;
+		return this;
+	  };
+	  asCross(a, b) {
+		return this.copy(a).cross(b);
+	  };
+	  addScaled(a, f) {
+		this.x += a.x * f;
+		this.y += a.y * f;
+		this.z += a.z * f;
+		return this;
+	  };
+
+	  length() {
+		return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
+	  };
+
+	  lengthSquared() {
+		return this.x * this.x + this.y * this.y + this.z * this.z;
+	  };
+	  normalize() {
+		var len = this.length();
+		if (len > 0) {
+		  this.scale(1 / len);
+		}
+		return this;
+	  };
+	  limit(s) {
+		var len = this.length();
+	  
+		if (len > s && len > 0) {
+		  this.scale(s / len);
+		}
+	  
+		return this;
+	  };
+	  lerp(v, t) {
+		this.x = this.x + (v.x - this.x) * t;
+		this.y = this.y + (v.y - this.y) * t;
+		this.z = this.z + (v.z - this.z) * t;
+		return this;
+	  }
+	  transformMat4(m) {
+		var x = m.a14 + m.a11 * this.x + m.a12 * this.y + m.a13 * this.z;
+		var y = m.a24 + m.a21 * this.x + m.a22 * this.y + m.a23 * this.z;
+		var z = m.a34 + m.a31 * this.x + m.a32 * this.y + m.a33 * this.z;
+		this.x = x;
+		this.y = y;
+		this.z = z;
+		return this;
+	  };
+	  transformQuat(q) {
+		var x = this.x;
+		var y = this.y;
+		var z = this.z;
+		var qx = q.x;
+		var qy = q.y;
+		var qz = q.z;
+		var qw = q.w;
+		var ix = qw * x + qy * z - qz * y;
+		var iy = qw * y + qz * x - qx * z;
+		var iz = qw * z + qx * y - qy * x;
+		var iw = -qx * x - qy * y - qz * z;
+		this.x = ix * qw + iw * -qx + iy * -qz - iz * -qy;
+		this.y = iy * qw + iw * -qy + iz * -qx - ix * -qz;
+		this.z = iz * qw + iw * -qz + ix * -qy - iy * -qx;
+		return this;
+	  };
+	  toString() {
+		return "{" + Math.floor(this.x*1000)/1000 + ", " + Math.floor(this.y*1000)/1000 + ", " + Math.floor(this.z*1000)/1000 + "}";
+	  };
+	  hash() {
+		return 1 * this.x + 12 * this.y + 123 * this.z;
+	  };
+}
+
+//module.exports = Octree;
+//export { Octree, Cell, Vec3 };

@@ -1,3 +1,5 @@
+
+
 // if we want to load OpenCV.js in this worker we need to wait for Module to fill up, after the promise...
 var Module = {
 	onRuntimeInitialized() {
@@ -6,7 +8,8 @@ var Module = {
 			console.log("SOMETHING");
 	}
 };
-self.importScripts("/js/three.js");
+self.importScripts("/js/three.js", "/js/Octree.js");
+
 if (typeof THREE === "function") {
 	const promise = THREE().then(function () {
 		console.log("THREE loaded");
@@ -59,8 +62,15 @@ onmessage = function (e) {
 function createTree(label, tree2) {
 	var resolutionLimit = 0.0001;
 
+	var octree = new Octree( {x: 0, y: 0, z: 0}, 10, 1);
+	// if we have a tree2 add that to the Octree now
+	if (typeof(tree2) !== 'undefined') {
+		// todo
+	}
+
+	var maxChildren = 2;
 	var tree = { edges: [], vertices: [] };
-	var bbox = [-100, -100, -100, 100, 100, 100]; // xmin, ymin, xmax, ymax
+	var bbox = [-3, -3, -3, 3, 3, 3]; // xmin, ymin, xmax, ymax
 	var root = new THREE.Vector3();
 	root.set(bbox[0] + (bbox[3] - bbox[0]) / 2.0,
 		bbox[1] + (bbox[4] - bbox[1]) / 2.0,
@@ -70,27 +80,32 @@ function createTree(label, tree2) {
 	var L = 1.0; // initial length
 	var reversalPoint = 0.01; // if the diameter is smaller than that, grow again
 
-	tree.vertices.push({ point: root, diameter: startDiameter, side: label, direction: [-L, 0, 0], factor: L, children: 2, distance: 0, level: 0 });
-	var root2 = new THREE.Vector3();
-	root2.set(root.x + L, root.y, root.z);
-	tree.vertices.push({ point: root2, diameter: startDiameter, side: label, direction: [L, 0, 0], factor: L, children: 2, distance: L, level: 1 });
-	tree.edges.push([0, 1]);
-	var root3 = new THREE.Vector3();
-	root3.set(root.x - L, root.y, root.z);
-	tree.vertices.push({ point: root3, diameter: startDiameter, side: label, direction: [-L, 0, 0], factor: L, children: 0, distance: L, level: 1 });
-	tree.edges.push([0, 2]);
+	// lets setup a cross in 3D as the root nodes of this tree
+	var dirs = [
+		[0,0,0],
+		[L,0,0],
+		[-L,0,0],
+		[0,L,0],
+		[0,-L,0],
+		[0,0,L],
+		[0,0,-L]
+	];
+	tree.vertices.push({ point: root, diameter: startDiameter, side: label, direction: [0, 0, 0], factor: L, children: maxChildren, distance: 0, level: 0 });
+	for (var i = 0; i < dirs.length; i++) {
+		var root2 = (new THREE.Vector3()).set(root.x + dirs[i][0], root.y + dirs[i][1], root.z + dirs[i][2]);
+		tree.vertices.push({ point: root2, diameter: startDiameter, side: label, direction: dirs[i], factor: L, children: 0, distance: L, level: 1 });
+		tree.edges.push([0, i+1]);
+		octree.add(new Vec3(root2.x, root2.y, root2.z), i+1);
+	}
 
-	//var octree = new THREE.Octree();
-	//octree.add( root );
-	//octree.add( root2);
 	// add more complexity
 	// look for a random point
-	var numEntries = 8000;
+	var numEntries = 20000;
 	for (var counter = 0; counter < numEntries; counter++) {
 		if ((counter % 200) == 0) {
 			postMessage({
 				"action": "info",
-				"text": "Create entry " + (counter+1) + "/" + (numEntries),
+				"text": "Create entry " + (tree.vertices.length) + "/" + (numEntries),
 				"label": label
 			});		
 		}
@@ -167,6 +182,8 @@ function createTree(label, tree2) {
 				tree.vertices[pickedNode].children++;
 				tree.vertices.push(candidate);
 				tree.edges.push([pickedNode, tree.vertices.length - 1]);
+				octree.add(new Vec3(candidate.point.x, candidate.point.y, candidate.point.z), tree.vertices.length - 1);
+
 				//octree.add(candidate.point);
 				/*if ((tree.vertices.length % 200) == 0) {
 					var id = document.getElementById("info");
