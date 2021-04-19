@@ -246,7 +246,7 @@ function createTree(label, tree2) {
 		[0, 0, L],
 		[0, 0, -L]
 	];
-	tree.vertices.push({ point: root, diameter: startDiameter, side: label, direction: [0, 0, 0], factor: 1, children: maxChildren, distance: 0, level: 0 });
+	tree.vertices.push({ point: root, diameter: startDiameter, side: label, direction: [0, 0, 0], factor: 1, children: dirs.length, distance: 0, level: 0 });
 	for (var i = 0; i < dirs.length; i++) {
 		var root2 = (new THREE.Vector3()).set(root.x + dirs[i][0], root.y + dirs[i][1], root.z + dirs[i][2]);
 		tree.vertices.push({ point: root2, diameter: startDiameter, side: label, direction: dirs[i], factor: 1, children: 0, distance: L, level: 1 });
@@ -257,7 +257,7 @@ function createTree(label, tree2) {
 
 	// add more complexity
 	// look for a random point
-	var numEntries = 6000;
+	var numEntries = 8000;
 	var attempts = 20;
 	for (var counter = 0; counter < numEntries; counter++) {
 		if ((counter % 10) == 0) {
@@ -282,7 +282,7 @@ function createTree(label, tree2) {
 			tree.vertices[pickedNode].attempt++;
 
 			var p = tree.vertices[pickedNode];
-			if (p.children > maxChildren) {
+			if (p.children >= maxChildren) {
 				if (++searchIterations > attempts) {
 					console.log("could not find any vertex with less than 2 nodes...");
 					break;
