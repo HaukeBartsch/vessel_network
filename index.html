@@ -179,8 +179,8 @@
 			container.appendChild(info);
 
 			camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.01, 10000);
-			camera.position.x = 10;
-			camera.position.y = 10;
+			camera.position.x = 60;
+			camera.position.y = 60;
 			camera.position.z = 0;
 			camera.lookAt(new THREE.Vector3(0, 0, 0));
 			camera.updateMatrixWorld();
@@ -189,7 +189,7 @@
 			scene = new THREE.Scene();
 			scene.background = new THREE.Color(0xb0b0b0);
 
-			const geometry = new THREE.SphereGeometry(0.01, 32, 32);
+			const geometry = new THREE.SphereGeometry(1, 32, 32);
 			const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 
 			sphereInter = new THREE.Mesh(geometry, material);
@@ -239,6 +239,8 @@
 								t2 = event.data["result"];
 								// now display everything
 								console.log("We got the second tree back from the worker!");
+								var d = document.getElementById("info");
+								d.innerText = "Generated vertices tree A: " + t.vertices.length + ", tree B: " + t2.vertices.length;
 								createVisualization([ t, t2 ]);
 							}
 						}
@@ -305,9 +307,12 @@
 			scene.add(parentTransform);
 
 			raycaster = new THREE.Raycaster();
-			raycaster.params.Line.threshold = 30 * resolutionLimit; // precision in world units (meter)
+			raycaster.params.Line.threshold = 1;// 100 * resolutionLimit; // precision in world units (meter)
 
-			renderer = new THREE.WebGLRenderer({ antialias: true });
+			renderer = new THREE.WebGLRenderer({ 
+				powerPreference: "high-performance",
+				antialias: true 
+			});
 			renderer.setPixelRatio(window.devicePixelRatio);
 			renderer.setSize(window.innerWidth, window.innerHeight);
 			renderer.gammaFactor = 2.2;
