@@ -34,3 +34,4 @@ We should preferably grow segments in directions that have a low density of segm
 
 The diameter of vessels should correspond to the volume of blood in the sub-tree that is downstream. Vessels that reach a large area without segments could grow in diameter.
 
+![Tree visualization](images/screenshot.jpg)
