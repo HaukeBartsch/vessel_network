@@ -196,6 +196,17 @@
 			sphereInter.visible = false;
 			scene.add(sphereInter);
 
+			const boxGeometry = new THREE.BoxGeometry(100,100,100);
+			//boxGeometry.setFromCenterAndSize( new THREE.Vector3(0,0,0), new THREE.Vector3(200,200,200));
+
+			const wireframe = new THREE.WireframeGeometry( boxGeometry );
+			const line = new THREE.LineSegments( wireframe );
+			line.material.depthTest = false;
+			line.material.opacity = 0.25;
+			line.material.transparent = true;
+			line.material.wireframe = true;
+			scene.add( line );
+
 			//
 			// create the trees
 			//
@@ -267,7 +278,24 @@
 				if (maxDiameter < t.vertices[i].diameter)
 					maxDiameter = t.vertices[i].diameter;
 			}
+			var bbox = [0,0,0,0,0,0];
+			for (var i = 0; i < t.vertices.length; i++) {
+				if (t.vertices[i].point.x < bbox[0])
+					bbox[0] = t.vertices[i].point.x;
+				if (t.vertices[i].point.x > bbox[3])
+					bbox[3] = t.vertices[i].point.x;
+				if (t.vertices[i].point.y < bbox[1])
+					bbox[1] = t.vertices[i].point.y;
+				if (t.vertices[i].point.y > bbox[4])
+					bbox[4] = t.vertices[i].point.y;
+				if (t.vertices[i].point.z < bbox[2])
+					bbox[2] = t.vertices[i].point.z;
+				if (t.vertices[i].point.z > bbox[5])
+					bbox[5] = t.vertices[i].point.z;
+			}
+
 			console.log("min max diameter " + minDiameter + " " + maxDiameter);
+			console.log("bounding box: " + bbox.join(","));
 			parentTransform = new THREE.Object3D();
 			function addTreeToScene(t) {
 				var colormap = colorbrewer['Spectral'][11];

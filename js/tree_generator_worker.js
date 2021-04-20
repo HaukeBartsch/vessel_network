@@ -257,7 +257,7 @@ function createTree(label, tree2) {
 
 	// add more complexity
 	// look for a random point
-	var numEntries = 20000;
+	var numEntries = 5000;
 	var attempts = 20;
 	for (var counter = 0; counter < numEntries; counter++) {
 		if ((counter % 10) == 0) {
@@ -272,7 +272,10 @@ function createTree(label, tree2) {
 			var pickedNode = Math.floor(Math.random() * tree.vertices.length);
 			// instead of random picking lets do a breath first search
 			for (var i = 0; i < tree.vertices.length; i++) {
-				if (tree.vertices[i].children < maxChildren && (typeof(tree.vertices[i].attempt) !== 'undefined' && tree.vertices[i].attempt < attempts)) {
+				if (tree.vertices[i].children < maxChildren) {
+					if (typeof(tree.vertices[i].attempt) !== 'undefined' && tree.vertices[i].attempt > attempts) {
+						continue;
+					}
 					pickedNode = i;
 					break;
 				}
