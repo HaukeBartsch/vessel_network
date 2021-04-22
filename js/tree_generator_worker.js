@@ -257,7 +257,7 @@ function createTree(label, tree2) {
 
 	// add more complexity
 	// look for a random point
-	var numEntries = 20000;
+	var numEntries = 80;
 	var attempts = 20;
 	for (var counter = 0; counter < numEntries; counter++) {
 		if ((counter % 10) == 0) {

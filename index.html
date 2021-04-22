@@ -26,6 +26,7 @@
 	<script src="js/colorbrewer.js"></script>
 	<script src="js/jquery-3.6.0.min.js"></script>
 	<script src="js/d3.v2.min.js" charset="utf-8"></script>
+	<script src="js/reorder.js"></script>
 
 	<script type="module">
 
@@ -191,7 +192,7 @@
 			scene = new THREE.Scene();
 			scene.background = new THREE.Color(0xb0b0b0);
 
-			const geometry = new THREE.SphereGeometry(0.5, 32, 32);
+			const geometry = new THREE.SphereGeometry(1, 16, 16);
 			const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 
 			sphereInter = new THREE.Mesh(geometry, material);
@@ -322,12 +323,90 @@
 				nodes[link.source].count += link.value;
 				nodes[link.target].count += link.value;
 			});
+			var adjacency = matrix.map(function(row) {
+    		    return row.map(function(c) { return c.z; });
+  			});			
+
+		    var graph = reorder.graph()
+		        .nodes(miserables.nodes)
+       	        .links(miserables.links)
+          		.init();
+
+		    var dist_adjacency;
+
+    		var leafOrder = reorder.optimal_leaf_order()
+            	.distance(reorder.distance.manhattan);
+
+
+			function computeLeaforder() {
+				var order = leafOrder(adjacency);
+
+				order.forEach(function(lo, i) {
+					nodes[i].leafOrder = lo;
+				});
+				return nodes.map(function(n) { return n.leafOrder; });
+			}
+
+			function computeLeaforderDist() {
+				if (! dist_adjacency)
+					dist_adjacency = reorder.graph2valuemats(graph);
+
+				var order = reorder.valuemats_reorder(dist_adjacency,
+													leafOrder);
+
+				order.forEach(function(lo, i) {
+					nodes[i].leafOrderDist = lo;
+				});
+				return nodes.map(function(n) { return n.leafOrderDist; });
+				
+			}
+			
+			function computeBarycenter() {
+				var barycenter = reorder.barycenter_order(graph),
+					improved = reorder.adjacent_exchange(graph,
+														barycenter[0],
+														barycenter[1]);
+
+				improved[0].forEach(function(lo, i) {
+					nodes[i].barycenter = lo;
+				});
+
+				return nodes.map(function(n) { return n.barycenter; });
+			}
+
+			function computeRCM() {
+				var rcm = reorder.reverse_cuthill_mckee_order(graph);
+				rcm.forEach(function(lo, i) {
+					nodes[i].rcm = lo;
+				});
+
+				return nodes.map(function(n) { return n.rcm; });
+			}
+
+			function computeSpectral() {
+				var spectral = reorder.spectral_order(graph);
+
+				spectral.forEach(function(lo, i) {
+					nodes[i].spectral = lo;
+				});
+
+				return nodes.map(function(n) { return n.spectral; });
+			}
 
 			// Precompute the orders.
 			var orders = {
 				name: d3.range(n).sort(function(a, b) { return d3.ascending(nodes[a].name, nodes[b].name); }),
 				count: d3.range(n).sort(function(a, b) { return nodes[b].count - nodes[a].count; }),
-				group: d3.range(n).sort(function(a, b) { return nodes[b].group - nodes[a].group; })
+				group: d3.range(n).sort(function(a, b) { 
+					var x = nodes[b].group - nodes[a].group;
+            		return (x != 0) ?  x : d3.ascending(nodes[a].name, nodes[b].name);
+					//return nodes[b].group - nodes[a].group; 
+				}),
+				leafOrder: computeLeaforder,
+				leafOrderDist: computeLeaforderDist,
+				barycenter: computeBarycenter,
+				rcm: computeRCM, // by Bandwidth Reduction (RCM)
+				spectral: computeSpectral
 			};
 
 			// The default sort order.
@@ -348,12 +427,12 @@
 			row.append("line")
 				.attr("x2", width);
 
-			/*row.append("text")
+			row.append("text")
 				.attr("x", -6)
 				.attr("y", x.rangeBand() / 2)
 				.attr("dy", ".32em")
 				.attr("text-anchor", "end")
-				.text(function(d, i) { return nodes[i].name; }); */
+				.text(function(d, i) { return nodes[i].name; });
 
 			var column = svg.selectAll(".column")
 				.data(matrix)
@@ -364,13 +443,13 @@
 			column.append("line")
 				.attr("x1", -width);
 
-			/*column.append("text")
+			column.append("text")
 				.attr("x", 6)
 				.attr("y", x.rangeBand() / 2)
 				.attr("dy", ".32em")
 				.attr("text-anchor", "start")
 				.text(function(d, i) { return nodes[i].name; });
-			*/
+			
 			function row(row) {
 				var cell = d3.select(this).selectAll(".cell")
 					.data(row.filter(function(d) { return d.z; }))
@@ -399,7 +478,14 @@
 				order(this.value);
 			});
 
+			var currentOrder = 'name';
 			function order(value) {
+				var o = orders[value];
+				currentOrder = value;
+
+				if (typeof o === "function") {
+					orders[value] = o.call();
+				}
 				x.domain(orders[value]);
 
 				var t = svg.transition().duration(2500);
@@ -415,12 +501,34 @@
 					.delay(function(d, i) { return x(i) * 4; })
 					.attr("transform", function(d, i) { return "translate(" + x(i) + ")rotate(-90)"; });
 			}
+			function distance(value) {
+				leafOrder.distance(reorder.distance[value]);
+
+				if (currentOrder == 'leafOrder') {
+					orders.leafOrder = computeLeaforder;
+					order("leafOrder");
+					//d3.select("#order").property("selectedIndex", 3);
+				}
+				else if (currentOrder == 'leafOrderDist') {
+					orders.leafOrderDist = computeLeaforderDist;
+					order("leafOrderDist");
+					//d3.select("#order").property("selectedIndex", 4);
+				}
+			}
+			distance("manhattan");
+			//distance("euclidean");
+			//distance("hamming");
+			matrix.order = order;
+			matrix.distance = distance;
+
 			var countOrder = 0;
 			jQuery('#adj').on('click', function() {
-				console.log("click on svg");
 				var settings = Object.keys(orders);
 				var timeout = setTimeout(function() {
-					order( settings[countOrder%3] );
+					var o = countOrder%settings.length;
+					order( settings[o] );
+					var d = document.getElementById("info");
+					d.innerText = "Sorting by algorithm: " + settings[o];
 					//d3.select("#order").property("selectedIndex", 2).node().focus();
 				}, 30);
 				countOrder++;
@@ -577,6 +685,15 @@
 				//console.log("end intersection test " + (timeB - timeA) + "sec with " + intersects.length + " found intersections.");
 
 				if (intersects.length > 0) {
+
+					// try to scale the sphere here
+					const dist = (new THREE.Vector3(0,0,0)).distanceTo(camera.position);
+					const vFOV = THREE.Math.degToRad(camera.fov);
+					const size = 2 * Math.tan(vFOV / 2) * dist;
+					const scaleFactor = 130;
+					const scale = size / scaleFactor;
+					//console.log("scale: " + scale);
+					sphereInter.scale.set(scale,scale,scale);
 
 					sphereInter.visible = true;
 					sphereInter.position.copy(intersects[0].point);
