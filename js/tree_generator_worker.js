@@ -232,7 +232,7 @@ function createTree(label, tree2) {
 	// if we want to get a smaller diameter vessel with the same area (volume) as the
 	// larger vessel we should select a radius sqrt(r*r/2) = r / sqrt(2) = 1/sqrt(2) = 0.7071
 	var factorSmallerByBranch = 0.7071; // both smaller diameter and short distance - this would keep the area the same after the branch
-	factorSmallerByBranch = 0.99;
+	factorSmallerByBranch = 0.8;
 
 	// how many levels do we need to reach rock bottom?
 	// roughly 40 levels down (0.8 smaller and starting with 1.15 as diameter)
@@ -257,7 +257,7 @@ function createTree(label, tree2) {
 
 	// add more complexity
 	// look for a random point
-	var numEntries = 5000;
+	var numEntries = 20000;
 	var attempts = 20;
 	for (var counter = 0; counter < numEntries; counter++) {
 		if ((counter % 10) == 0) {

@@ -1,6 +1,6 @@
 # Network of tubular structures
 
-This module creates and visualizes tree structures with a given diameter at each vertex. The tree is created by adding new nodes successively in a random way. Each time a node is added the module checks if the new point would overlap with the existing tree. The overlap is specified by the diameter of both vessel structures.
+This module creates and visualizes tree structures with a given diameter at each vertex. The tree is created by adding new nodes successively in a random way (angiogenesis). Each time a node is added the module checks if the new point would overlap with the existing tree. The overlap area is specified by the diameter of both vessel structures.
 
 The process is repeated with a second tree starting at the same location. The two trees are not connected - but the module guarantees that the second tree does not overlap (other than the root nodes at 0,0,0) with the first tree.
 
@@ -26,7 +26,7 @@ The first tree 'A' is created first. The second tree 'B' will be grown afterward
 
 The nodes are added in each tree based on a breath first search manner. The number of possible segments starting from any segments end point is 2.
 
-The diameter value starts at something like 0.2 and is reduced each depth level by a factor of 0.9. The length of the start segments is 1 and also reduced by the factor of 0.9 (with some noise).
+The diameter value starts at something like 0.2 and is reduced each depth level by a factor of 0.9. The length of the start segments is 1 and also reduced by the factor of 0.9 (with some noise). More realistic is a reduction by 0.7071 (area preserving at 2-split).
 
 There is a momentum term for the direction of the segment growth (and a lot of noise).
 
