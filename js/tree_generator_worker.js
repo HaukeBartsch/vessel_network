@@ -205,14 +205,17 @@ function createTree(label, tree2, numNodes) {
 		["B", "vena cava", 25000, 1500]
 	];
 
-	var octree = undefined; // new Octree( {x: 0, y: 0, z: 0}, 10, 1);
+	// lets do an octree on the edges instead of the points
+	var octree = new Octree( {x: 0, y: 0, z: 0}, 10, 1);
 	// if we have a tree2 add that to the Octree now
 	if (typeof (tree2) !== 'undefined') {
 		// todo
 		if (typeof (octree) != 'undefined') {
-			for (var i = 0; i < tree2.vertices.length; i++) {
-				octree.add(new Vec3(tree2.vertices[i].point.x, tree2.vertices[i].point.y, tree2.vertices[i].point.z),
-					{ id: i, label: tree2.vertices[i].label });
+			for (var i = 0; i < tree2.edges.length; i++) {
+				// we could store the middle point - or just the location of the first point for that edge
+				var p = tree2.vertices[tree2.edges[i][1]].point;
+				octree.add(new Vec3(p.x, p.y, p.z),
+					{ id: i, label: 'tree2', edge: i });
 			}
 		}
 	}
@@ -253,20 +256,25 @@ function createTree(label, tree2, numNodes) {
 		tree.vertices.push({ point: root2, diameter: startDiameter, side: label, direction: dirs[i], factor: 1, children: 0, distance: L, level: 1 });
 		tree.edges.push([0, i + 1]);
 		if (typeof (octree) != 'undefined')
-			octree.add(new Vec3(root2.x, root2.y, root2.z), { id: i + 1, tree: label });
+			octree.add(new Vec3(root2.x, root2.y, root2.z), { id: i + 1, label: 'tree', edge: tree.edges.length-1 });
 	}
 
 	// add more complexity
 	// look for a random point
 	var numEntries = numNodes;
 	var attempts = 20;
+	var timeStart = new Date().getTime();
+	var timeLast = timeStart;
 	for (var counter = 0; counter < numEntries; counter++) {
-		if ((counter % 10) == 0) {
+		if ((counter % 100) == 0) {
+			var timeNow = new Date().getTime();
+			var rate = 1000.0/((timeNow - timeLast) / 100.0);
 			postMessage({
 				"action": "info",
-				"text": "Create entry " + (tree.vertices.length) + "/" + (numEntries),
+				"text": "Create entry " + (tree.vertices.length.toLocaleString()) + "/" + (numEntries.toLocaleString()) + " (rate " + rate.toFixed(2).toLocaleString() + "/sec)",
 				"label": label
 			});
+			timeLast = timeNow;
 		}
 		var searchIterations = 0;
 		while (true) {
@@ -357,33 +365,48 @@ function createTree(label, tree2, numNodes) {
 				}
 				return false;
 			}
-			function testOverlapOctree(tree, candidate, octree) {
+			function testOverlapOctree(tree, tree2, p, candidate, octree) {
 				var point = candidate.point;
 				// return boolean to see if candidate overlaps with the existing tree
-				var line = new THREE.Line3();
+				var line1 = new THREE.Line3();
+				var line2 = new THREE.Line3();
+				line1.set(p.point, candidate.point);
+
 				var closest = octree.findNearbyPoints(new Vec3(point.x, point.y, point.z), 1, { notSelf: false, includeData: true });
 				// we have now closest.data and closest.points, in data we have id: 1 and tree: 'A'
-				for (var i = 0; i < closest.length; i++) { // check for all line segments in the tree
-					for (var j = 0; j < tree.edges.length; j++) {
-						if (tree.edges[j][0] != closest[i].data.id && tree.edges[j][1] != closest[i].data.id)
-							continue;
-
-						var edge = tree.edges[j];
-						var C = new THREE.Vector3();
-						line.set(tree.vertices[edge[0]].point, tree.vertices[edge[1]].point).closestPointToPoint(point, true, C);
-						var distance = point.distanceTo(C);
-						// we want to be farther away than the diameters of both
-						var threshold = tree.vertices[edge[1]].diameter + candidate.diameter;
-						if (distance < threshold)
-							return true; // too close
+				for (var i = 0; i < closest.points.length; i++) { // check for all line segments in the tree
+					// do we have to look for all edges now? Or is there an easier way to see what points?
+					// the array here has some attached data
+					var thisEdge = closest.data[i].edge;
+					var edge = -1;
+					if (closest.data[i].label == 'tree2') {
+						edge = tree2.edges[thisEdge];
+						line2.set(tree2.vertices[edge[0]].point, tree2.vertices[edge[1]].point);
+					} else {
+						edge = tree.edges[thisEdge];
+						if (typeof (edge) == 'undefined')
+							console.log("break here");
+						line2.set(tree.vertices[edge[0]].point, tree.vertices[edge[1]].point);
 					}
+					// if the two lines share a point it does not make much sense to compute the distance - will be 0
+
+					var distance = shortDistance(line1, line2, clampAll = true);
+					// we want to be farther away than the diameters of both
+					var threshold = 0.0;
+					if ( closest.data[i].label == 'tree2') {
+						threshold = (tree2.vertices[edge[1]].diameter/2.0) + (candidate.diameter/2.0);
+					} else {
+						threshold = (tree.vertices[edge[1]].diameter/2.0) + (candidate.diameter/2.0);
+					}
+					if (distance[2] > 0 && distance[2] < threshold) // check for > 0 is to make sure that both lines don't have a point in commong
+						return true; // too close
 				}
 				return false;
 			}
 
-			if (!testOverlap2(tree, p, candidate)) {
+			if (!testOverlapOctree(tree, tree2, p, candidate, octree)) {
 				if (typeof tree2 != 'undefined') { // in this case don't intersect with the second tree
-					if (testOverlap2(tree2, p, candidate)) {
+					if (testOverlapOctree(tree, tree2, p, candidate, octree)) {
 						if (++searchIterations > attempts) {
 							//console.log("too many search iterations, no more nodes found");
 							break; // without adding a node
@@ -395,8 +418,9 @@ function createTree(label, tree2, numNodes) {
 				tree.vertices[pickedNode].children++;
 				tree.vertices.push(candidate);
 				tree.edges.push([pickedNode, tree.vertices.length - 1]);
-				if (typeof (octree) != 'undefined')
-					octree.add(new Vec3(candidate.point.x, candidate.point.y, candidate.point.z), { id: tree.vertices.length - 1, tree: label });
+				if (typeof (octree) != 'undefined') {
+					octree.add(new Vec3(candidate.point.x, candidate.point.y, candidate.point.z), { id: tree.vertices.length - 1, label: 'tree', edge: tree.edges.length-1 });
+				}
 				break;
 			}
 			if (++searchIterations > attempts) {
