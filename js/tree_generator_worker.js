@@ -41,11 +41,12 @@ onmessage = function (e) {
 
 	var label = e.data["label"];
 	var tree2 = e.data["tree2"];
+	var numNodes = e.data["numNodes"];
 
 	//var resolutionLimit = 0.0001;
 
 	console.log("in webworker, start creating tree");
-	var tree = createTree(label, tree2);
+	var tree = createTree(label, tree2, numNodes);
 	console.log("in webworker, finished with creating tree");
 
 	postMessage({
@@ -188,7 +189,7 @@ function shortDistance(line1, line2, clampAll = false, clampA0 = false, clampA1 
 }
 
 
-function createTree(label, tree2) {
+function createTree(label, tree2, numNodes) {
 	var resolutionLimit = 0.0008/2.0; // radius
 
 	// our model unit is in meter but we can redefine them to mean
@@ -257,7 +258,7 @@ function createTree(label, tree2) {
 
 	// add more complexity
 	// look for a random point
-	var numEntries = 80;
+	var numEntries = numNodes;
 	var attempts = 20;
 	for (var counter = 0; counter < numEntries; counter++) {
 		if ((counter % 10) == 0) {
@@ -307,7 +308,7 @@ function createTree(label, tree2) {
 					                      (Math.random() - 0.5) * l * factor, 
 										  (Math.random() - 0.5) * l * factor));
 			// make the new position depend on the diameter
-			pp = p.point.clone().add(pp.normalize().multiplyScalar(diam*20));
+			pp = p.point.clone().add(pp.normalize().multiplyScalar(diam*10));
 
 			var candidate = {
 				point: pp,

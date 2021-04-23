@@ -1,8 +1,8 @@
 # Network of tubular structures
 
-This module creates and visualizes tree structures with a given diameter at each vertex. The tree is created by adding new nodes successively in a random way (angiogenesis). Each time a node is added the module checks if the new point would overlap with the existing tree. The overlap area is specified by the diameter of both vessel structures.
+This module creates and visualizes tree structures with a given diameter at each vertex. The tree is created by adding new nodes successively in a random way (angiogenesis). Each time a vessel is added the module checks if that vessel segments overlaps with any other segment of the tree. The overlap area is specified by the radiuses of both vessel structures.
 
-The process is repeated with a second tree starting at the same location. The two trees are not connected - but the module guarantees that the second tree does not overlap (other than the root nodes at 0,0,0) with the first tree.
+The process is repeated with a second tree starting at the same location. The two trees are not connected - but the module guarantees that the second tree does not overlap (other than the root nodes at 0,0,0 and +-L,0,0 and 0,+-L,0 and 0,0,+-L) with the first tree.
 
 ![Tree visualization](images/screenshot.png)
 
