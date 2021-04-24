@@ -377,6 +377,7 @@ function createTree(label, tree2, numNodes) {
 				}
 				return false;
 			}
+			
 			function testOverlapOctree(tree, tree2, p, candidate, octree) {
 				var point = candidate.point;
 				// return boolean to see if candidate overlaps with the existing tree
@@ -384,6 +385,39 @@ function createTree(label, tree2, numNodes) {
 				var line2 = new THREE.Line3();
 				line1.set(p.point, candidate.point);
 
+				// we should check the first 10 edges as well - they are big and we might not catch them
+				// with our octree
+				for (var i = 0; i < Math.min(20, tree.edges.length); i++) {
+					var thisEdge = i; 
+					var edge = -1;
+					edge = tree.edges[thisEdge];
+					line2.set(tree.vertices[edge[0]].point, tree.vertices[edge[1]].point);
+
+					var distance = shortDistance(line1, line2, clampAll = true);
+					// we want to be farther away than the diameters of both
+					var threshold = 0.0;
+					threshold = (tree.vertices[edge[1]].diameter/2.0) + (candidate.diameter/2.0) + oxygen_diffusion_length;
+					if (distance[2] > 0 && distance[2] < threshold) // check for > 0 is to make sure that both lines don't have a point in commong
+						return true; // too close
+				}
+
+				if (typeof(tree2) != 'undefined') {
+					for (var i = 0; i < Math.min(20, tree2.edges.length); i++) {
+						var thisEdge = i;
+						var edge = -1;
+						edge = tree2.edges[thisEdge];
+						line2.set(tree2.vertices[edge[0]].point, tree2.vertices[edge[1]].point);
+
+						var distance = shortDistance(line1, line2, clampAll = true);
+						// we want to be farther away than the diameters of both
+						var threshold = 0.0;
+						threshold = (tree2.vertices[edge[1]].diameter/2.0) + (candidate.diameter/2.0);
+						if (distance[2] > 0 && distance[2] < threshold) // check for > 0 is to make sure that both lines don't have a point in commong
+							return true; // too close
+					}
+				}
+
+				// because we check a single point large edges will not be in the box!!!
 				var closest = octree.findNearbyPoints(new Vec3(point.x, point.y, point.z), 1, { notSelf: false, includeData: true });
 				// we have now closest.data and closest.points, in data we have id: 1 and tree: 'A'
 				for (var i = 0; i < closest.points.length; i++) { // check for all line segments in the tree

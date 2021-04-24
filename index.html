@@ -22,6 +22,7 @@
 <body>
 	<div style="position: fixed; bottom: 30px; left: 30px;"><span id="info"></span></div>
 	<button style="position: fixed; bottom: 30px; right: 30px;" id="download">Download</button>
+	<button style="position: fixed; left: 50%; top: 50%;" id="visualize">Visualize</button>
 	<div id="adj" style="position: absolute; right: 0px; top: 0px;"></div>
 	<script src="js/colorbrewer.js"></script>
 	<script src="js/jquery-3.6.0.min.js"></script>
@@ -44,7 +45,7 @@
 
 		var tree_worker = undefined;
 
-		var numNodes = 500000; // what we want: 1e6;
+		var numNodes = 10000; // what we want: 1e6;
 
 		init();
 		animate();
@@ -139,9 +140,7 @@
 								console.log("We got the second tree back from the worker!");
 								var d = document.getElementById("info");
 								d.innerText = "Generated vertices tree A: " + t.vertices.length + ", tree B: " + t2.vertices.length;
-								createVisualization([ t, t2 ], numNodes < 10000 ? true : false);
-								if (t.vertices.length < 300)
-									createAdjacencyMatrix([t, t2]);
+								jQuery("#visualize").show();
 							}
 						}
 					}
@@ -690,6 +689,16 @@
 		var txtAsCsv2 = "";
 
 		jQuery(document).ready(function () {
+			jQuery('#visualize').hide();
+			jQuery('#visualize').on('click', function() {
+				jQuery('#visualize').fadeOut().hide();
+				setTimeout(function() {
+					createVisualization([ t, t2 ], numNodes < 10000 ? true : false);
+					if (t.vertices.length < 300)
+						createAdjacencyMatrix([t, t2]);
+				}, 100);
+			});
+
 			jQuery('#download').on('click', function () {
 				console.log("download data as csv");
 				var txtAsCsv = "";
