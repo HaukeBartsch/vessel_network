@@ -20,7 +20,7 @@ php -S localhost:8000
 
 Under Windows you might also be able to use the web-server build into python (3.9):
 ```
-python -m http.server
+python -m http.server 
 ```
 
 Navigate with a browser to the web-address (localhost:8000). You need to wait for the tree generation to finish. Adjust the number of vertices in the code (top section of module in index.html).
