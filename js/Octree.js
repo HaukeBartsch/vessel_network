@@ -3,7 +3,7 @@ class Octree {
 
 	constructor(position, size, accuracy) {
 		this.maxDistance = Math.max(size.x, Math.max(size.y, size.z));
-		this.accuracy = 0;
+		this.accuracy = accuracy;
 		this.root = new Cell(this, position, size, 0);
 	}
 

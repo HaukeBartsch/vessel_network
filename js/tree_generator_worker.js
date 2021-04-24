@@ -208,7 +208,7 @@ function createTree(label, tree2, numNodes) {
 	var oxygen_diffusion_length = 100 * 1e-4; // 100micrometer in our units of measure
 
 	// lets do an octree on the edges instead of the points
-	var octree = new Octree( {x: 0, y: 0, z: 0}, 10, 1);
+	var octree = new Octree( {x: 0, y: 0, z: 0}, { x: 50, y: 50, z: 50 }, 1*1e-4);
 	// if we have a tree2 add that to the Octree now
 	if (typeof (tree2) !== 'undefined') {
 		// todo
@@ -230,7 +230,7 @@ function createTree(label, tree2, numNodes) {
 
 	var L = startDiameter * 10.0; // initial length
 	var tree = { edges: [], vertices: [] };
-	var bbox = [-300, -300, -300, 300, 300, 300]; // xmin, ymin, xmax, ymax
+	var bbox = [-100, -100, -100, 100, 100, 100]; // xmin, ymin, xmax, ymax
 	var root = new THREE.Vector3();
 	root.set(bbox[0] + (bbox[3] - bbox[0]) / 2.0,
 		bbox[1] + (bbox[4] - bbox[1]) / 2.0,
@@ -239,6 +239,16 @@ function createTree(label, tree2, numNodes) {
 	// larger vessel we should select a radius sqrt(r*r/2) = r / sqrt(2) = 1/sqrt(2) = 0.7071
 	var factorSmallerByBranch = 0.7071; // both smaller diameter and short distance - this would keep the area the same after the branch
 	factorSmallerByBranch = 0.8;
+
+	// ok according to https://www.ahajournals.org/doi/pdf/10.1161/01.res.38.6.572
+	// (diameter of parent)^3 = (diameter of first child)^3 + (diameter of second child)^3
+	// diam_p^3 = maxChildren(diam_c^3)
+	// diam_c = pow(pow(diam_p,3)/maxChildren,1/3)
+	nextDiameter = function(diam_p) {
+		var coeff = 3.0;
+		// for diam_p == 1 this is about 0.8
+		return Math.pow(Math.pow(diam_p,coeff)/maxChildren,1.0/coeff);
+	}
 
 	// how many levels do we need to reach rock bottom?
 	// roughly 40 levels down (0.8 smaller and starting with 1.15 as diameter)
@@ -306,7 +316,7 @@ function createTree(label, tree2, numNodes) {
 			var factor = p.factor * factorSmallerByBranch;
 			if (factor < resolutionLimit)
 				factor = resolutionLimit;
-			var diam = p.diameter * factorSmallerByBranch;
+			var diam = nextDiameter(p.diameter);
 			if (diam < resolutionLimit) {
 				diam = resolutionLimit;
 			}
