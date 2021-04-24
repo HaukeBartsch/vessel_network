@@ -190,7 +190,7 @@ function shortDistance(line1, line2, clampAll = false, clampA0 = false, clampA1 
 
 
 function createTree(label, tree2, numNodes) {
-	var resolutionLimit = 0.0008/2.0; // radius
+	var resolutionLimit = 0.0008/2.0; // radius in mm/10
 
 	// our model unit is in meter but we can redefine them to mean
 	// 2.5 ... 0.0008 
@@ -204,6 +204,8 @@ function createTree(label, tree2, numNodes) {
 		["B", "vein", 5000, 500],
 		["B", "vena cava", 25000, 1500]
 	];
+	// https://www.hindawi.com/journals/bmri/2015/476964/
+	var oxygen_diffusion_length = 100 * 1e-4; // 100micrometer in our units of measure
 
 	// lets do an octree on the edges instead of the points
 	var octree = new Octree( {x: 0, y: 0, z: 0}, 10, 1);
@@ -224,7 +226,7 @@ function createTree(label, tree2, numNodes) {
 	// AORTA
 	var startDiameter = 2.5/2.0; // what we call diameter is actually the radius
 	// ARTERY
-	startDiameter = 0.4/2.0;
+	startDiameter = 0.4001/2.0;
 
 	var L = startDiameter * 10.0; // initial length
 	var tree = { edges: [], vertices: [] };
@@ -396,7 +398,7 @@ function createTree(label, tree2, numNodes) {
 					if ( closest.data[i].label == 'tree2') {
 						threshold = (tree2.vertices[edge[1]].diameter/2.0) + (candidate.diameter/2.0);
 					} else {
-						threshold = (tree.vertices[edge[1]].diameter/2.0) + (candidate.diameter/2.0);
+						threshold = (tree.vertices[edge[1]].diameter/2.0) + (candidate.diameter/2.0) + oxygen_diffusion_length;
 					}
 					if (distance[2] > 0 && distance[2] < threshold) // check for > 0 is to make sure that both lines don't have a point in commong
 						return true; // too close

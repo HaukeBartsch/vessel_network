@@ -1,6 +1,6 @@
 # Network of tubular structures
 
-This module creates and visualizes tree structures with a given diameter at each vertex. The tree is created by adding new nodes successively in a random way (angiogenesis). Each time a vessel is added the module checks if that vessel segments overlaps with any other segment of the tree. The overlap area is specified by the radiuses of both vessel structures.
+This module creates and visualizes tree structures with a given diameter at each vertex. The tree is created by adding new nodes successively in a random way (angiogenesis). Each time a vessel is added the module checks if that vessel segments overlaps with any other segment of the tree. The overlap area is specified by the sum of the radii of both vessel-like structures.
 
 The process is repeated with a second tree starting at the same location. The two trees are not connected - but the module guarantees that the second tree does not overlap (other than the root nodes at 0,0,0 and +-L,0,0 and 0,+-L,0 and 0,0,+-L) with the first tree.
 
@@ -15,10 +15,15 @@ The exported value "length" corresponds to the distance of the next node from th
 The module is written in JavaScript. Download (git clone) the repository and start a webserver in the directory. Here an example with the build-in web-server from php:
 
 ```
-php -S localhost:3000
+php -S localhost:8000
 ```
 
-Navigate with a browser to the web-address (localhost:3000). You need to wait for the tree generation to finish. As there are no Octree magics going on this will take a while. Adjust the number of vertices in the code (top section of module in index.html).
+Under Windows you might also be able to use the web-server build into python (3.9):
+```
+python -m http.server
+```
+
+Navigate with a browser to the web-address (localhost:8000). You need to wait for the tree generation to finish. Adjust the number of vertices in the code (top section of module in index.html).
 
 ### Remarks
 

@@ -44,7 +44,7 @@
 
 		var tree_worker = undefined;
 
-		var numNodes = 200000;
+		var numNodes = 20000;
 
 		init();
 		animate();
@@ -642,8 +642,43 @@
 					var dat = intersects[0].object.userData.points;
 					//console.log("we have the information about the line in userData: " + dat[0] + " " + dat[1]);
 					//console.log("diameter: " + t.vertices[dat[0]].diameter);
+					var thickLabelA = [
+						["A", "aorta", 25000, 2000],
+						["A", "artery", 4000, 1000],
+						["A", "arteriole", 30, 20],
+						["C", "capillary", 8, 1] /*,
+						["B", "venule", 20, 2],
+						["B", "vein", 5000, 500],
+						["B", "vena cava", 25000, 1500] */
+					];
+					var thickLabelB = [
+						/*["A", "aorta", 25000, 2000],
+						["A", "artery", 4000, 1000],
+						["A", "arteriole", 30, 20],*/
+						["C", "capillary", 8, 1] ,
+						["B", "venule", 20, 2],
+						["B", "vein", 5000, 500],
+						["B", "vena cava", 25000, 1500]
+					];
+					var diam = t.vertices[dat[1]].diameter;
+					var nameIdx = 0;
+					if (dat[2] == "A") {
+						var dists = thickLabelA.map(function(a) {
+							return ((a[2] / 1e-4) - diam)*((a[2] * 1e-4) - diam);
+						});
+						name = thickLabelA[dists.indexOf(Math.min.apply(null, dists))][1];
+					} else {
+						var dists = thickLabelB.map(function(a) {
+							return ((a[2] * 1e-4) - diam)*((a[2] * 1e-4) - diam);
+						});
+						name = thickLabelB[dists.indexOf(Math.min.apply(null, dists))][1];
+					}
+
 					var d = document.getElementById("info");
-					d.innerText = "Level: " + dat[3]+ ", diameter: " + t.vertices[dat[1]].diameter.toFixed(4) + " closest points: [" + dat[1] + "," + dat[0] + "], tree: " + dat[2];
+					d.innerHTML = "Level: " + dat[3]+ ", diameter: " 
+							+ (t.vertices[dat[1]].diameter*10000).toFixed(1) 
+							+ "&micro;m (" + name + "),"
+							+ " closest points: [" + dat[1].toLocaleString() + ", " + dat[0].toLocaleString() + "], tree: " + dat[2];
 				} else {
 					sphereInter.visible = false;
 				}
