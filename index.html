@@ -45,7 +45,7 @@
 
 		var tree_worker = undefined;
 
-		var numNodes = 10000; // what we want: 1e6;
+		var numNodes = 500000; // what we want: 1e6;
 
 		init();
 		animate();
@@ -139,7 +139,7 @@
 								// now display everything
 								console.log("We got the second tree back from the worker!");
 								var d = document.getElementById("info");
-								d.innerText = "Generated vertices tree A: " + t.vertices.length + ", tree B: " + t2.vertices.length;
+								d.innerText = "Generated vertices tree A: " + t.vertices.length.toLocaleString() + ", tree B: " + t2.vertices.length.toLocaleString();
 								jQuery("#visualize").show();
 							}
 						}

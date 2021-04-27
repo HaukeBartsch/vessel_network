@@ -1,20 +1,33 @@
 # Network of tubular structures
 
-This module creates and visualizes tree structures with a given diameter at each vertex. The tree is created by adding new nodes successively in a random way (angiogenesis). Each time a vessel is added the module checks if that vessel segments overlaps with any other segment of the tree. The overlap area is specified by the sum of the radii of both vessel-like structures.
+### Motivation
 
-The process is repeated with a second tree starting at the same location. The two trees are not connected - but the module guarantees that the second tree does not overlap (other than the root nodes at 0,0,0 and +-L,0,0 and 0,+-L,0 and 0,0,+-L) with the first tree.
+A way to understand a dataset is by mapping some of its features to a model. If the model has a simple description those features of the original dataset can be explained away using that model. Whatever left in the data will be the source of new discoveries.
+
+## Description
+
+This module creates and visualizes tree structures with a given diameter at each vertex. The tree is created by adding new nodes successively in a random way - similar to angiogenesis of blood vessels. Each time a _vessel_ is added the module checks if the new segments overlaps with any other segment of the tree. The maximum allowed overlap area is specified by the sum of the radii of both vessel-like structures adding in a diffusion constant of 100&micron;m.
+
+The process is repeated with a second tree starting out at the same location as the root nodes of the first tree. The two trees are not connected - but the module guarantees that the second tree does not overlap (other than the root nodes at 0,0,0 and +-L,0,0 and 0,+-L,0 and 0,0,+-L) with the first tree.
 
 ![Tree visualization](images/screenshot.png)
 
-The above visualization is generated using two different colormaps for the two trees ('A' and 'B'). Both colormaps use the diameter (log) as the mapped color value per vertex. The "Download" button will create two spreadsheets that contain the nodes and vertices of both trees.
+The above visualization is generated using two different colormaps for the two trees ('A' in darker red and 'B' in lighter pastell colors). Both colormaps use the diameter (log diameter) as the mapped color value per vertex. 
 
-The exported value "length" corresponds to the distance of the next node from the root of the tree, the "level" value corresponds to the number of branching points from the root node.
+## Features
+
+The "Download" button will create two spreadsheets that contain the nodes and vertices of both trees. The exported value "length" corresponds to the distance of the next node from the root of the tree, the "level" value corresponds to the number of branching points from the root node.
+
+If the number of nodes parameter in the code is set to a smaller number an adjacency matrix is displayed in the viewer. A click on the display will switch between different ways of sorting the rows and columns in the matrix. The initial matrix display illustrates the order used in the creation of the tree (breath first). Is illustrates nicely the features of a purse tree with a fixed number of decendence at each level.  
+
 
 ### How to start
 
-The module is written in JavaScript. Download (git clone) the repository and start a webserver in the directory. Here an example with the build-in web-server from php:
+The module is written in JavaScript. Download (git clone) the repository and start a webserver in the directory. Here an example with the build-in web-server from php. Start the web-server from inside the repository directory.
 
 ```
+git clone https://github.com/HaukeBartsch/vessel_network.git
+cd vessel_network
 php -S localhost:8000
 ```
 
